@@ -25,7 +25,7 @@ export default async function handler(req: Req, res: Res) {
   if (mode === 'run') {
     const person = q(req, 'person'), garment = q(req, 'garment')
     const t0 = Date.now()
-    const data = [img(person), img(garment), false, Number(q(req, 'steps') || 30), 2.5, 42, q(req, 'model') || 'dress_code', q(req, 'type') || 'dresses', false, false]
+    const data = [img(person), img(garment), false, Number(q(req, 'steps') || 30), 2.5, 42, q(req, 'model') || 'dress_code', q(req, 'type') || 'dresses', false]
     try {
       const r1 = await fetch(`${LEFFA}/gradio_api/call/leffa_predict_vt`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(process.env.HF_TOKEN ? { Authorization: `Bearer ${process.env.HF_TOKEN}` } : {}) }, body: JSON.stringify({ data }) })
       const j1: any = await r1.json().catch(() => ({}))
