@@ -3,9 +3,9 @@ import { t, type Lang, type Key } from '../i18n'
 import { can, modelsFor, salonOf, findModel, allModels, collectionsOf, ROLE_HE, type Model, type User } from '../data'
 import { api, newGalleryId, galleryUrl, setKey } from '../api'
 import { composeLook, composePair, shrink } from '../imaging'
-import { dressBride } from '../tryon'
+import { dressBride, poseBride } from '../tryon'
 import { STUDIO, applyBackdrop, type Backdrop } from '../bg'
-import { backgrounds } from '../data'
+import { backgrounds, poseRefs } from '../data'
 import { activeEngine } from '../engine'
 import { Stage, Dress } from '../Stage'
 import { DEFAULT_T, fmtTime, type AuditEntry, type Consent, type Fav, type Page, type Session } from '../App'
@@ -38,6 +38,12 @@ export default function Studio(p: Props) {
   const dressed = model ? s?.tryons?.[model.id] : undefined
   const shot = model && dressed ? (bd.kind === 'original' ? dressed : s?.shots?.[`${model.id}|${bd.id}`]) : undefined
   const [bgBusy, setBgBusy] = useState(false)
+  const frames = model ? (s?.poses?.[model.id] || []) : []
+  const reel = shot || dressed ? [shot || dressed!, ...frames] : frames
+  const [playing, setPlaying] = useState(false)
+  const [frame, setFrame] = useState(0)
+  useEffect(() => { if (!playing || reel.length < 2) return; const t = setInterval(() => setFrame(f => (f + 1) % reel.length), 1100); return () => clearInterval(t) }, [playing, reel.length])
+  useEffect(() => { setPlaying(false); setFrame(0) }, [model?.id])
   const groups = [...new Set(backs.filter(b => b.kind !== 'original').map(b => b.group || 'נוף'))]
   const [bgGroup, setBgGroup] = useState(groups.find(g => g !== 'סטודיו מובנה') || 'סטודיו מובנה')
   useEffect(() => {
@@ -99,7 +105,11 @@ export default function Studio(p: Props) {
           <div className={`stage-box${!s?.photoKind ? ' dim' : ''}`}>
             {step >= 3 && model && dressed ? (
               <div className={`stage dressed${bgBusy ? ' busy' : ''}`}>
-                <img src={shot || dressed} alt={model.name} className="photo" />
+                <img key={playing ? frame : 'still'} src={playing ? reel[frame % reel.length] : (frame && reel[frame] ? reel[frame] : (shot || dressed))} alt={model.name} className={`photo${playing ? ' reel' : ''}`} />
+                {reel.length > 1 && <div className="reel-bar">
+                  <button onClick={() => setPlaying(p => !p)}>{playing ? 'עצירה' : '▶ תנועה'}</button>
+                  {reel.map((u, k) => <button key={k} className={`thumb${(frame % reel.length) === k ? ' on' : ''}`} onClick={() => { setPlaying(false); setFrame(k) }}><img src={u} alt="" /></button>)}
+                </div>}
                 {bgBusy && <span className="bg-busy">מחליפה רקע...</span>}
               </div>
             ) : <Stage photo={s?.photo ?? null} model={step >= 3 ? model : null} fill={fillOf(shown?.modelId ?? s?.modelId ?? null, shown?.variation ?? s?.variation ?? null)} transform={shown?.transform ?? s?.transform ?? DEFAULT_T} watermark={L('illustration')} uid="main" />}
@@ -413,7 +423,9 @@ function FollowStep({ lang, user, s, setSession, log, audit, onPick }: Props & {
 // שמירת התמונה: הרכבה מקומית תמיד זמינה, ומנוע AI כשהוא מחובר בשרת
 function SaveLook({ lang, user, s, model, shot, bd, onSaved, setSession, log }: { lang: Lang; user: User; s: Session; model: Model; shot?: string; bd: Backdrop; onSaved: (f: Fav) => void; setSession: Props['setSession']; log: Props['log'] }) {
   const L = (k: Key) => t(lang, k)
-  const [busy, setBusy] = useState<'' | 'save' | 'try' | 'all'>('')
+  const [busy, setBusy] = useState<'' | 'save' | 'try' | 'all' | 'pose'>('')
+  const [poseN, setPoseN] = useState(0)
+  const POSE_COUNT = Math.min(4, poseRefs(model.garment).length)
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
   const [progress, setProgress] = useState<{ done: number; total: number; name: string } | null>(null)
@@ -476,6 +488,27 @@ function SaveLook({ lang, user, s, model, shot, bd, onSaved, setSession, log }: 
     log(`מדידה אוטומטית: ${ok} מתוך ${targets.length}, רקע ${bd.label}`, 'privacy')
   }
 
+  // תנועה: הלקוחה המולבשת בתנוחות של הדוגמניות, כל תנוחה על הרקע שנבחר
+  const makePoses = async () => {
+    const raw = s.tryons?.[model.id]; if (!raw) return
+    setBusy('pose'); setErr(''); setPoseN(0)
+    const refs = poseRefs(model.garment).slice(0, POSE_COUNT)
+    const out: string[] = []
+    for (const ref of refs) {
+      try {
+        let f = await poseBride(raw, ref, n => setNote(n > 1 ? `ניסיון ${n} מתוך 3...` : ''))
+        if (bd.kind !== 'original') f = await applyBackdrop(f, bd).catch(() => f)
+        out.push(f); setPoseN(out.length)
+        setSession(x => x && { ...x, poses: { ...(x.poses || {}), [model.id]: [...out] } })
+      } catch (e: any) { setErr(e.message); if (/עמוס|מכסה/.test(e.message)) break }
+    }
+    log(`סדרת תנוחות: ${model.name}, ${out.length} תנוחות`, 'privacy')
+    setBusy(''); setNote('')
+  }
+  const savePoses = async () => {
+    setBusy('save')
+    try { for (const f of s.poses?.[model.id] || []) await saveImage(model, f, 'ai') } catch (e: any) { setErr(e.message) } finally { setBusy('') }
+  }
   if (!can(user, 'favorites')) return null
   if (!days) return <p className="note">{L('localOnly')}</p>
   if (keyOk === null) return <p className="muted">...</p>
@@ -499,6 +532,10 @@ function SaveLook({ lang, user, s, model, shot, bd, onSaved, setSession, log }: 
               ? <button className="danger" onClick={() => { stop.current = true }}>{L('tryStop')}</button>
               : <button disabled={!!busy || !canTry || !targets.length} onClick={tryAll}>{s.picked.length ? `מדידת הנבחרים · ${targets.length}` : `${L('tryAll')} · ${targets.length}`}</button>}
           </div>
+          {s.tryons?.[model.id] && <div className="row">
+            <button disabled={!!busy} onClick={makePoses}>{busy === 'pose' ? `תנוחות ${poseN}/${POSE_COUNT}...` : (s.poses?.[model.id]?.length ? `סדרת תנוחות · ${s.poses[model.id].length} · שוב` : `סדרת תנוחות · ${POSE_COUNT}`)}</button>
+            {!!s.poses?.[model.id]?.length && <button className="ghost" disabled={!!busy} onClick={savePoses}>שמירת הסדרה לגלריה</button>}
+          </div>}
           {note && <p className="note">{note}</p>}
           {progress && <div className="try-progress"><i style={{ width: `${(progress.done / Math.max(1, progress.total)) * 100}%` }} /><span>{progress.done}/{progress.total} {busy === 'all' ? `· ${progress.name}` : L('tryDone')}</span></div>}
           {!s.consent?.ai && <p className="note">{L('tryNoConsent')}</p>}

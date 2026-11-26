@@ -92,9 +92,13 @@ export const VAR_PHOTO: Variation = { id: 'photo', label: { he: 'כמו בתמו
 const ugly = /whatsapp|^img[ _-]?\d|^dsc|^image\s|^photo|^\d{6,}/i
 let BACKS: { id: string; name: string; url: string; group: string }[] = []
 export const backgrounds = () => BACKS
+let POSES: string[] = []
+/** תנוחות ייחוס: מה שהועלה ללשונית "תנוחות", ואם אין, צילומי הדוגמניות של הקולקציה */
+export const poseRefs = (exceptGarment?: string) => (POSES.length ? POSES : REMOTE.map(m => m.garment!).filter(Boolean)).filter(u => u !== exceptGarment)
 export function setRemote(all: any[]) {
+  POSES = all.filter(m => m.kind === 'pose').map(m => m.image)
   BACKS = all.filter(m => m.kind === 'background').map(m => ({ id: m.id, name: m.name, url: m.image, group: m.collection || 'נוף' }))
-  const list = all.filter(m => m.kind !== 'background').sort((a, b) => a.createdAt - b.createdAt)
+  const list = all.filter(m => m.kind !== 'background' && m.kind !== 'pose').sort((a, b) => a.createdAt - b.createdAt)
   const count: Record<string, number> = {}
   for (const m of list) { count[m.collection] = (count[m.collection] || 0) + 1; m._n = count[m.collection]; if (ugly.test(m.name || '')) m.name = `דגם ${String(m._n).padStart(2, '0')}` }
   REMOTE = list.map(m => ({

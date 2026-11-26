@@ -25,7 +25,7 @@ function clean(m: any) {
     cutout: !!m.cutout,
     rights: String(m.rights || 'צילום הקולקציה, לשימוש בעסק').slice(0, 120),
     image: String(m.image || ''),
-    kind: m.kind === 'background' ? 'background' : 'model',
+    kind: m.kind === 'background' ? 'background' : m.kind === 'pose' ? 'pose' : 'model',
     cover: /^https:\/\//.test(m.cover || '') ? String(m.cover) : '',
     createdAt: Number(m.createdAt) || Date.now(),
   }

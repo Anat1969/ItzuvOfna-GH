@@ -30,6 +30,7 @@ export interface Session {
   picked: string[] // דגמים שסומנו למדידה
   backdrop: string // רקע נבחר: orig, סטודיו או רקע שהועלה
   shots: Record<string, string> // `${דגם}|${רקע}` ← התמונה על הרקע
+  poses?: Record<string, string[]> // דגם ← סדרת תנוחות (כבר על הרקע)
 }
 export interface AuditEntry { at: number; who: string; what: string; level: 'info' | 'privacy' | 'deny' | 'approve' }
 

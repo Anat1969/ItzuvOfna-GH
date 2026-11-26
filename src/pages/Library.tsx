@@ -25,7 +25,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
   const [over, setOver] = useState(false)
   const [err, setErr] = useState('')
   const input = useRef<HTMLInputElement>(null)
-  const [tab, setTab] = useState<'models' | 'backs' | 'biz'>('models')
+  const [tab, setTab] = useState<'models' | 'backs' | 'poses' | 'biz'>('models')
   const [bgCat, setBgCat] = useState('קיר סטודיו')
   const [upgrade, setUpgrade] = useState<{ m: RemoteModel; img?: string; bd?: Backdrop; busy?: boolean } | null>(null)
   const [biz, setBiz] = useState({ business: '', whatsapp: '', payUrl: '', retentionDays: 180 })
@@ -36,7 +36,8 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
   useEffect(() => { reload(); api.health().then(h => setKeyOk(h.keyOk)).catch(() => setKeyOk(false)) }, [])
 
   const backs = models.filter(m => m.kind === 'background')
-  const coll = models.filter(m => m.kind !== 'background')
+  const poses = models.filter(m => m.kind === 'pose')
+  const coll = models.filter(m => m.kind !== 'background' && m.kind !== 'pose')
   const collections = [...new Set(coll.map(m => m.collection))]
   const allowed = can(user, 'catalog')
   const CATS = ['חדר סטודיו', 'קיר סטודיו', 'נוף']
@@ -124,6 +125,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
       <nav className="tabs" role="tablist">
         <button role="tab" className={tab === 'models' ? 'on' : ''} onClick={() => setTab('models')}>דגמים · {coll.length}</button>
         <button role="tab" className={tab === 'backs' ? 'on' : ''} onClick={() => setTab('backs')}>רקעים · {backs.length}</button>
+        <button role="tab" className={tab === 'poses' ? 'on' : ''} onClick={() => setTab('poses')}>תנוחות · {poses.length}</button>
         <button role="tab" className={tab === 'biz' ? 'on' : ''} onClick={() => setTab('biz')}>העסק</button>
       </nav>
       {err && <p className="deny">{err}</p>}
@@ -212,6 +214,30 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
             </div>
           ))}
         </section>
+      </>}
+
+      {tab === 'poses' && <>
+        <section className="lib-up">
+          <div className="lib-opts">
+            <p className="note">תנוחות ייחוס לתנועה: דוגמנית בהליכה, בסיבוב, בתנוחת צילום, בגוף מלא. הלקוחה המולבשת מועברת אליהן אוטומטית.</p>
+            <p className="note">כל עוד לא הועלו תנוחות, המערכת משתמשת בתנוחות של הדוגמניות מצילומי הקולקציה.</p>
+          </div>
+          <label className="drop">
+            <b>גוררים או בוחרים תמונות תנוחה</b>
+            <span>גוף מלא, לאורך, ידיים וכפות רגליים בפריים.</span>
+            <input type="file" accept="image/*" multiple hidden disabled={keyOk !== true} onChange={async e => {
+              const files = Array.from(e.target.files || []); e.target.value = ''
+              for (const [i, f] of files.entries()) {
+                try {
+                  const out = await cutout(await fileToDataUrl(f), { remove: false, tolerance: 0, maxSide: 1400 })
+                  await api.saveModel({ id: `ps-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: `תנוחה ${String(poses.length + i + 1).padStart(2, '0')}`, collection: 'תנוחות', kind: 'pose', aspect: out.aspect, cutout: false, createdAt: Date.now() } as any, out.dataUrl)
+                } catch (er: any) { setErr(er.message) }
+              }
+              await reload(); onChange()
+            }} />
+          </label>
+        </section>
+        <section className="shelf"><ul className="shelf-grid">{poses.map(m => card(m))}</ul></section>
       </>}
 
       {tab === 'biz' && (

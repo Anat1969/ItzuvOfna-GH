@@ -12,7 +12,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export interface Biz { business?: string; whatsapp?: string; payUrl?: string; retentionDays?: number }
 export interface Health { storage: boolean; ai: boolean; keyOk: boolean }
-export interface RemoteModel { kind?: 'model' | 'background'; cover?: string; id: string; name: string; collection: string; sizes: number[]; salons: string[]; retailPrice: number; aspect: number; cutout: boolean; rights: string; image: string; createdAt: number }
+export interface RemoteModel { kind?: 'model' | 'background' | 'pose'; cover?: string; id: string; name: string; collection: string; sizes: number[]; salons: string[]; retailPrice: number; aspect: number; cutout: boolean; rights: string; image: string; createdAt: number }
 export interface Look { url: string; expires: number; modelId: string; engine: 'local' | 'ai'; uploadedAt: number }
 
 export const api = {
@@ -31,7 +31,7 @@ export const api = {
   saveClient: (g: string, image: string, name: string, days: number) => call('/api/clients', { method: 'POST', body: JSON.stringify({ g, image, name, days }) }),
   renameClient: (g: string, name: string) => call('/api/clients', { method: 'POST', body: JSON.stringify({ g, name, rename: true }) }),
   deleteClient: (g: string) => call('/api/clients?g=' + g, { method: 'DELETE' }),
-  tryon: (person: string, garment: string) => call<{ image: string; ms: number }>('/api/tryon', { method: 'POST', body: JSON.stringify({ person, garment }) }),
+  tryon: (person: string, garment: string, pose = false) => call<{ image: string; ms: number }>('/api/tryon', { method: 'POST', body: JSON.stringify({ person, garment, pose }) }),
   generate: (photo: string, dress: string, name: string) => call<{ image: string }>('/api/generate', { method: 'POST', body: JSON.stringify({ photo, dress, name }) }),
 }
 
