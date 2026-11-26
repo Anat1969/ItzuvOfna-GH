@@ -22,6 +22,8 @@ export default async function handler(req: Req, res: Res) {
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: p }, { inline_data: d }] }], generationConfig: { responseModalities: ['IMAGE'] } }),
     })
     const j: any = await r.json()
+    if (r.status === 429) return send(res, 402, { error: /free_tier|limit: 0/.test(j?.error?.message || '') ? 'מנוע ה-AI מחובר, אבל בחשבון Google אין מכסה חינמית להפקת תמונות. צריך להפעיל חיוב בחשבון. עד אז התמונה נשמרת בהרכבה המקומית.' : 'הגעת למכסת ההפקות לזמן הזה. נסי שוב מאוחר יותר.' })
+    if (r.status === 400 || r.status === 403) return send(res, 502, { error: 'מפתח ה-AI לא תקין או שאין לו הרשאה למודל התמונות.' })
     if (!r.ok) return send(res, 502, { error: j?.error?.message || 'שגיאת מנוע' })
     const part = j?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data || x.inlineData)
     const img = part?.inline_data || part?.inlineData
