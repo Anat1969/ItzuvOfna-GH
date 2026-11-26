@@ -19,6 +19,7 @@ export default async function handler(req: Req, res: Res) {
         business: String(b.business || '').slice(0, 60),
         whatsapp: String(b.whatsapp || '').replace(/[^\d]/g, '').slice(0, 15),
         payUrl: /^https:\/\//.test(b.payUrl || '') ? String(b.payUrl).slice(0, 300) : '',
+        retentionDays: [30, 90, 180, 365].includes(Number(b.retentionDays)) ? Number(b.retentionDays) : 180,
       }
       const { blobs } = await current()
       await put('settings/business.json', JSON.stringify(data), { access: 'public', contentType: 'application/json', addRandomSuffix: true })

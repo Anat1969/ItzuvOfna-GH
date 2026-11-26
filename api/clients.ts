@@ -15,8 +15,9 @@ export default async function handler(req: Req, res: Res) {
       const expired = blobs.filter(b => Number(b.pathname.split('/')[2]?.split('_')[0]) < now)
       if (expired.length) await del(expired.map(b => b.url))
       const by: Record<string, any> = {}
+      const metas = blobs.filter(b => /\/name-[^/]+\.json$/.test(b.pathname))
       for (const b of blobs) {
-        if (expired.includes(b)) continue
+        if (expired.includes(b) || metas.includes(b)) continue
         const [, g, file] = b.pathname.split('/')
         const base = file.replace(/-[A-Za-z0-9]+\.(jpg|png|webp)$/, ''); const cut = base.indexOf('_')
         const exp = base.slice(0, cut), nm = base.slice(cut + 1)
@@ -24,13 +25,20 @@ export default async function handler(req: Req, res: Res) {
         by[g].photos.push(b.url)
         by[g].createdAt = Math.min(by[g].createdAt, new Date(b.uploadedAt).getTime())
       }
+      await Promise.all(metas.map(async m => { const g = m.pathname.split('/')[1]; try { const j = await (await fetch(m.url, { cache: 'no-store' })).json(); if (by[g]) by[g].name = j.name } catch { /* */ } }))
       return send(res, 200, Object.values(by).sort((a: any, b: any) => b.createdAt - a.createdAt))
     }
     if (req.method === 'POST') {
-      const { g, image, name, days } = req.body || {}
+      const { g, image, name, days, rename } = req.body || {}
       if (!GALLERY.test(g || '')) return send(res, 400, { error: 'סשן לא תקין' })
+      if (rename) {
+        const { blobs: old } = await list({ prefix: `clients/${g}/name-` })
+        await put(`clients/${g}/name-${Date.now()}.json`, JSON.stringify({ name: String(name || '').slice(0, 60) }), { access: 'public', contentType: 'application/json', addRandomSuffix: true })
+        if (old.length) await del(old.map(b => b.url))
+        return send(res, 200, { ok: true })
+      }
       const img = dataUrlToBuffer(image)
-      const expires = Date.now() + Math.min(30, Math.max(1, Number(days) || 7)) * 864e5
+      const expires = Date.now() + Math.min(365, Math.max(1, Number(days) || 180)) * 864e5
       const up = await put(`clients/${g}/${expires}_${enc(String(name || ''))}.${img.ext}`, img.buf, { access: 'public', contentType: img.type, addRandomSuffix: true })
       return send(res, 200, { url: up.url })
     }

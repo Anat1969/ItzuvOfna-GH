@@ -26,6 +26,7 @@ function clean(m: any) {
     rights: String(m.rights || 'צילום הקולקציה, לשימוש בעסק').slice(0, 120),
     image: String(m.image || ''),
     kind: m.kind === 'background' ? 'background' : 'model',
+    cover: /^https:\/\//.test(m.cover || '') ? String(m.cover) : '',
     createdAt: Number(m.createdAt) || Date.now(),
   }
 }
@@ -42,6 +43,11 @@ export default async function handler(req: Req, res: Res) {
         const img = dataUrlToBuffer(body.image)
         const up = await put(`models/img/${meta.id}.${img.ext}`, img.buf, { access: 'public', contentType: img.type, addRandomSuffix: true })
         meta.image = up.url
+      }
+      if (body.cover) {
+        const cv = dataUrlToBuffer(body.cover)
+        const up = await put(`models/img/${meta.id}-cover.${cv.ext}`, cv.buf, { access: 'public', contentType: cv.type, addRandomSuffix: true })
+        meta.cover = up.url
       }
       if (!meta.image) return send(res, 400, { error: 'חסרה תמונה' })
       const old = (await readAll()).filter((m: any) => m.id === meta.id)

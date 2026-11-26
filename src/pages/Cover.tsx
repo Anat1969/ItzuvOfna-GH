@@ -1,31 +1,51 @@
+import { useEffect, useState } from 'react'
 import { allModels } from '../data'
 import type { Page } from '../App'
 
-const FLOW = ['הלקוחה מצטלמת', 'מודדת את הקולקציה', 'רקע סטודיו או נוף', 'גלריה אישית', 'הזמנה']
+const FLOW = [
+  { t: 'הקולקציה', d: 'מעלים את הדגמים כמו שצולמו' },
+  { t: 'הלקוחה', d: 'מצטלמת פעם אחת, לאורך' },
+  { t: 'מדידה', d: 'כל הדגמים שסימנה, עליה' },
+  { t: 'סטודיו', d: 'רקע של צילום אופנה' },
+  { t: 'גלריה והזמנה', d: 'בוחרת, משתפת ומזמינה' },
+]
 
 export default function Cover({ go }: { go: (p: Page) => void }) {
-  const hero = allModels().slice(0, 3)
+  const imgs = allModels().slice(0, 8).map(m => m.image!).filter(Boolean)
+  const [i, setI] = useState(0)
+  useEffect(() => { const t = setInterval(() => setI(x => x + 1), 4200); return () => clearInterval(t) }, [])
+  const cur = imgs.length ? i % imgs.length : 0
+  const stage = i % FLOW.length
   return (
-    <div className="cover">
-      <div className={`cover-art n${hero.length}`} aria-hidden="true">
-        {hero.length ? hero.map(m => <img key={m.id} src={m.image} alt="" />) : <span className="cover-empty">הקולקציה תופיע כאן אחרי ההעלאה הראשונה</span>}
+    <div className="cover lux">
+      <div className="lux-art" aria-hidden="true">
+        {imgs.map((src, k) => (
+          <div key={src} className={`lux-slide${k === cur ? ' on' : ''}`}>
+            <img className="lux-depth" src={src} alt="" />
+            <img className="lux-front" src={src} alt="" />
+          </div>
+        ))}
+        {!imgs.length && <span className="cover-empty">הקולקציה תופיע כאן</span>}
+        <div className="lux-frame" />
+        <div className="lux-count mono">{String(cur + 1).padStart(2, '0')} / {String(Math.max(1, imgs.length)).padStart(2, '0')}</div>
       </div>
-      <div className="cover-text">
-        <span className="kicker">קולקציה · סטודיו אופנה אוטומטי</span>
-        <h1>הלקוחה מצטלמת פעם אחת. <mark>כל הקולקציה עליה.</mark></h1>
-        <p className="lead-xl">
-          מעלים את הקולקציה כמו שהיא, מצולמת על דוגמנית.
-          <br />הלקוחה מצטלמת או שולחת תמונה, מודדת את כל הדגמים, בוחרת רקע, ומקבלת גלריה אישית.
-        </p>
-        <ol className="flow">
-          {FLOW.map((f, i) => <li key={f}><span className="mono">{i + 1}</span>{f}</li>)}
+      <div className="lux-text">
+        <span className="lux-kicker">קולקציה · סטודיו אופנה</span>
+        <h1 className="lux-title">הלקוחה מצטלמת פעם אחת.<br /><em>כל הקולקציה עליה.</em></h1>
+        <p className="lux-lead">סטודיו אוטומטי: מדידה, צילום סטודיו, גלריה אישית והזמנה, בלי לצאת מהסלון.</p>
+        <ol className="lux-flow">
+          {FLOW.map((f, k) => (
+            <li key={f.t} className={k === stage ? 'on' : ''} style={{ ['--k' as string]: k }}>
+              <span className="lux-n">{String(k + 1).padStart(2, '0')}</span>
+              <b>{f.t}</b><span>{f.d}</span>
+            </li>
+          ))}
         </ol>
         <div className="row">
-          <button className="primary big" onClick={() => go('studio')}>פתיחה: לסטודיו</button>
-          <button className="big" onClick={() => go('library')}>הקולקציה</button>
+          <button className="primary big" onClick={() => go('studio')}>כניסה לסטודיו</button>
+          <button className="big ghost" onClick={() => go('library')}>הקולקציה</button>
           <button className="big ghost" onClick={() => go('clients')}>לקוחות</button>
         </div>
-        <p className="fine">ההדמיה ממחישה ואינה מחליפה מדידה. בלי עלות: ההלבשה בשירות מחקר פתוח, והחלפת הרקע במכשיר עצמו.</p>
       </div>
     </div>
   )

@@ -17,6 +17,16 @@ export default async function handler(req: Req, res: Res) {
     if (!GALLERY.test(g)) return send(res, 400, { error: 'קישור גלריה לא תקין' })
     const prefix = `looks/${g}/`
 
+    // פרטי הלקוחה לגלריה שלה: התצלום והשם. מחזיקת הקישור היא הלקוחה עצמה.
+    if (req.method === 'GET' && q(req, 'who') === '1') {
+      const { blobs } = await list({ prefix: `clients/${g}/`, limit: 100 })
+      const photo = blobs.find(b => !/\/name-/.test(b.pathname))?.url || ''
+      const meta = blobs.filter(b => /\/name-/.test(b.pathname)).pop()
+      let name = ''
+      if (meta) { try { name = (await (await fetch(meta.url, { cache: 'no-store' })).json()).name } catch { /* */ } }
+      else if (photo) { const f = photo.split('/').pop() || ''; const nm = f.replace(/-[A-Za-z0-9]+\.(jpg|png|webp)$/, '').split('_').slice(1).join('_'); try { name = Buffer.from(nm, 'base64url').toString('utf8') } catch { /* */ } }
+      return send(res, 200, { photo, name })
+    }
     if (req.method === 'GET') {
       const { blobs } = await list({ prefix, limit: 1000 })
       const now = Date.now()
@@ -29,7 +39,7 @@ export default async function handler(req: Req, res: Res) {
     if (req.method === 'POST') {
       if (!authed(req)) return send(res, 401, { error: 'מפתח סטודיו שגוי' })
       const { image, modelId, days, engine } = req.body || {}
-      const d = Math.min(30, Math.max(1, Number(days) || 7))
+      const d = Math.min(365, Math.max(1, Number(days) || 180))
       const img = dataUrlToBuffer(image)
       const expires = Date.now() + d * 864e5
       const up = await put(`${prefix}${expires}_${safeId(modelId) || 'model'}_${engine === 'ai' ? 'ai' : 'local'}.${img.ext}`, img.buf, { access: 'public', contentType: img.type, addRandomSuffix: true })

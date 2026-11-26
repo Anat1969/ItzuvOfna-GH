@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { t, type Lang, type Key } from '../i18n'
-import { can, modelsFor, salonOf, findModel, allModels, collectionsOf, RET_DAYS, ROLE_HE, type Model, type Retention, type User } from '../data'
+import { can, modelsFor, salonOf, findModel, allModels, collectionsOf, ROLE_HE, type Model, type User } from '../data'
 import { api, newGalleryId, galleryUrl, setKey } from '../api'
 import { composeLook, composePair, shrink } from '../imaging'
 import { dressBride } from '../tryon'
@@ -33,11 +33,13 @@ export default function Studio(p: Props) {
   const [followPick, setFollowPick] = useState<Fav | null>(null)
   const shown: Fav | null = step === 5 ? (s?.request?.fav ?? followPick) : null
   const model = findModel(shown?.modelId ?? s?.modelId) ?? null
-  const backs: Backdrop[] = [...STUDIO, ...backgrounds().map(b => ({ id: b.id, label: b.name, kind: 'image' as const, url: b.url }))]
+  const backs: Backdrop[] = [...STUDIO, ...backgrounds().map(b => ({ id: b.id, label: b.name, kind: 'image' as const, url: b.url, group: b.group }))]
   const bd = backs.find(b => b.id === (s?.backdrop || 'orig')) ?? STUDIO[0]
   const dressed = model ? s?.tryons?.[model.id] : undefined
   const shot = model && dressed ? (bd.kind === 'original' ? dressed : s?.shots?.[`${model.id}|${bd.id}`]) : undefined
   const [bgBusy, setBgBusy] = useState(false)
+  const groups = [...new Set(backs.filter(b => b.kind !== 'original').map(b => b.group || 'נוף'))]
+  const [bgGroup, setBgGroup] = useState(groups.find(g => g !== 'סטודיו מובנה') || 'סטודיו מובנה')
   useEffect(() => {
     if (!model || !dressed || bd.kind === 'original' || s?.shots?.[`${model.id}|${bd.id}`]) return
     let live = true; setBgBusy(true)
@@ -111,11 +113,14 @@ export default function Studio(p: Props) {
         {step === 0 && <OpenStep {...p} />}
         {s && step === 1 && <ConsentStep lang={lang} jurisdiction={salonOf(user).jurisdiction} done={s.consent} onAgree={c => {
           upd({ consent: c, step: s.photo ? 3 : 2 })
-          log(`הסכמה נחתמה: צילום, הסבר עיבוד, שמירה "${L(('r_' + c.retention) as Key)}". שיווק ${c.o1 ? 'כן' : 'לא'}, אימון מודלים ${c.o2 ? 'כן' : 'לא'}, שליחה ${c.o3 ? 'כן' : 'לא'}, הלבשה ב-AI חיצוני ${c.ai ? 'כן' : 'לא'}`, 'privacy')
+          log(`הסכמה נחתמה: צילום, הסבר עיבוד, שמירה ${c.days} ימים. שיווק ${c.o1 ? 'כן' : 'לא'}, אימון מודלים ${c.o2 ? 'כן' : 'לא'}, שליחה ${c.o3 ? 'כן' : 'לא'}, הלבשה ב-AI חיצוני ${c.ai ? 'כן' : 'לא'}`, 'privacy')
         }} />}
-        {s && step === 2 && <CaptureStep lang={lang} onPhoto={(photo, kind) => {
+        {s && step === 2 && <CaptureStep lang={lang} onClient={(photo, name, gallery) => {
+          upd({ photo, photoKind: 'file', client: name, gallery, step: 3 })
+          log(`לקוחה קיימת: ${name}. התמונות יישמרו בגלריה שלה`, 'privacy')
+        }} onPhoto={(photo, kind) => {
           upd({ photo, photoKind: kind, step: 3 })
-          const days = RET_DAYS[s.consent?.retention ?? 'session']
+          const days = (s.consent?.days ?? 0)
           if (photo && days) shrink(photo, 1600, 0.9).then(img => api.saveClient(s.gallery, img, s.client, days)).then(() => log('תצלום המקור נשמר בארכיון הלקוחות', 'privacy')).catch(() => log('שמירת המקור בארכיון נכשלה', 'deny'))
           log(`תצלום נקלט (${kind === 'camera' ? 'מצלמה' : 'קובץ'})`, 'privacy')
         }} />}
@@ -133,8 +138,12 @@ export default function Studio(p: Props) {
               ))}
               <button className="ghost" onClick={() => upd({ transform: DEFAULT_T })}>{L('reset')}</button>
             </fieldset>}
-            <div><span className="lbl">רקע</span>
-              <div className="backs">{backs.map(b => (
+            <div><span className="lbl">רקע · {bd.label}</span>
+              <div className="seg wrap bg-groups">
+                <button className={bd.kind === 'original' ? 'on' : ''} onClick={() => upd({ backdrop: 'orig' })}>מקור</button>
+                {groups.map(g => <button key={g} className={bgGroup === g ? 'on' : ''} onClick={() => setBgGroup(g)}>{g} · {backs.filter(b => (b.group || 'נוף') === g && b.kind !== 'original').length}</button>)}
+              </div>
+              <div className="backs">{backs.filter(b => b.kind !== 'original' && (b.group || 'נוף') === bgGroup).map(b => (
                 <button key={b.id} className={bd.id === b.id ? 'on' : ''} onClick={() => upd({ backdrop: b.id })} title={b.label}>
                   <i style={b.kind === 'studio' ? { background: `radial-gradient(circle at 50% 35%, ${b.tones![0]}, ${b.tones![1]} 60%, ${b.tones![2]})` } : b.kind === 'image' ? { backgroundImage: `url(${b.url})` } : s.photo ? { backgroundImage: `url(${dressed || s.photo})` } : {}} />{b.label}
                 </button>
@@ -200,7 +209,11 @@ function OpenStep({ lang, user, setSession, log }: Props) {
 
 function ConsentStep({ lang, jurisdiction, done, onAgree }: { lang: Lang; jurisdiction: 'IL' | 'EU'; done: Consent | null; onAgree: (c: Consent) => void }) {
   const L = (k: Key) => t(lang, k)
-  const [c, setC] = useState<Omit<Consent, 'at'>>(done ?? { c1: false, c2: false, c3: false, o1: false, o2: false, o3: false, ai: false, retention: jurisdiction === 'EU' ? '24h' : '7d' })
+  const [days, setDays] = useState(180)
+  useEffect(() => { api.settings().then(b => setDays(jurisdiction === 'EU' ? Math.min(30, b.retentionDays || 180) : (b.retentionDays || 180))).catch(() => null) }, [])
+  const [c, setC] = useState<Omit<Consent, 'at' | 'days'>>(done ?? { c1: false, c2: false, c3: false, o1: false, o2: false, o3: false, ai: false, retention: '30d' })
+  const keys = ['c1', 'c2', 'c3', 'ai', 'o1', 'o2', 'o3'] as const
+  const all = keys.every(k => c[k])
   const ready = c.c1 && c.c2 && c.c3
   const box = (k: 'c1' | 'c2' | 'c3' | 'o1' | 'o2' | 'o3' | 'cAi') => (
     <label className={`check${(k === 'cAi' ? c.ai : c[k]) ? ' on' : ''}`}><input type="checkbox" checked={k === 'cAi' ? c.ai : c[k]} disabled={!!done} onChange={e => setC(k === 'cAi' ? { ...c, ai: e.target.checked } : { ...c, [k]: e.target.checked })} /><span>{L(k)}</span></label>
@@ -209,27 +222,28 @@ function ConsentStep({ lang, jurisdiction, done, onAgree }: { lang: Lang; jurisd
     <div className="stack">
       <h2>{L('consentTitle')}</h2>
       <p className="lead">{L('consentLead')}</p>
-      {box('c1')}{box('c2')}
-      <div className="ret">
-        <span className="lbl">{L('retention')}</span>
-        <div className="seg">
-          {(['session', '24h', '7d', '30d'] as Retention[]).filter(r => jurisdiction !== 'EU' || r !== '30d').map(r => (
-            <button key={r} className={c.retention === r ? 'on' : ''} disabled={!!done} onClick={() => setC({ ...c, retention: r })}>{L(('r_' + r) as Key)}</button>
-          ))}
-        </div>
-      </div>
-      {box('c3')}
+      {!done && <label className={`check all${all ? ' on' : ''}`}><input type="checkbox" checked={all} onChange={e => setC(Object.fromEntries([...Object.entries(c), ...keys.map(k => [k, e.target.checked])]) as typeof c)} /><span><b>אישור הכול</b> · מסמן את כל הסעיפים שלמטה</span></label>}
+      {box('c1')}{box('c2')}{box('c3')}
+      <p className="note">מדיניות השמירה של העסק: <b>{days} ימים</b>, ואז מחיקה אוטומטית. הלקוחה יכולה לבקש מחיקה בכל רגע, והגלריה שלה כוללת כפתור מחיקה.</p>
       <span className="lbl">{L('optional')}</span>
       {box('cAi')}{box('o1')}{box('o2')}{box('o3')}
-      {jurisdiction === 'EU' && <p className="note">סלון באיחוד האירופי: ברירת המחדל היא שמירה עד סוף הסשן. שמירה ארוכה יותר דורשת בסיס חוקי ובחינה משפטית מקומית.</p>}
       {done
         ? <p className="ok">הסכמה נחתמה ב-{fmtTime(done.at)}</p>
-        : <button className="primary big" disabled={!ready} onClick={() => onAgree({ ...c, at: Date.now() })}>{L('agree')}</button>}
+        : <button className="primary big" disabled={!ready} onClick={() => onAgree({ ...c, days, at: Date.now() })}>{L('agree')}</button>}
     </div>
   )
 }
 
-function CaptureStep({ lang, onPhoto }: { lang: Lang; onPhoto: (p: string | null, k: 'camera' | 'file' | 'demo') => void }) {
+function CaptureStep({ lang, onPhoto, onClient }: { lang: Lang; onPhoto: (p: string | null, k: 'camera' | 'file' | 'demo') => void; onClient: (photo: string, name: string, gallery: string) => void }) {
+  const [clients, setClients] = useState<{ gallery: string; name: string; photos: string[] }[]>([])
+  const [q, setQ] = useState('')
+  useEffect(() => { api.clients().then(setClients).catch(() => null) }, [])
+  const found = q.trim() ? clients.filter(c => (c.name || '').includes(q.trim())).slice(0, 6) : []
+  const pickClient = async (c: { gallery: string; name: string; photos: string[] }) => {
+    const b = await (await fetch(c.photos[0])).blob()
+    const data = await new Promise<string>(ok => { const r = new FileReader(); r.onload = () => ok(r.result as string); r.readAsDataURL(b) })
+    onClient(data, c.name, c.gallery)
+  }
   const L = (k: Key) => t(lang, k)
   const video = useRef<HTMLVideoElement>(null)
   const [stream, setStream] = useState<MediaStream | null>(null)
@@ -256,6 +270,10 @@ function CaptureStep({ lang, onPhoto }: { lang: Lang; onPhoto: (p: string | null
     <div className="stack">
       <h2>{L('captureTitle')}</h2>
       <p className="lead">{L('captureLead')}</p>
+      {clients.length > 0 && <div className="client-search">
+        <input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="לקוחה קיימת? חיפוש לפי שם" />
+        {found.length > 0 && <ul>{found.map(c => <li key={c.gallery}><button onClick={() => pickClient(c)}><img src={c.photos[0]} alt="" /><span>{c.name || 'ללא שם'}</span></button></li>)}</ul>}
+      </div>}
       <div className={`cam-wrap${stream ? ' live' : ''}`}><video ref={video} className="cam" playsInline muted /><div className="cam-guide" aria-hidden="true" /></div>
       <div className="row">
         {!stream ? <button className="primary" onClick={start}>{L('camera')}</button> : <button className="primary" onClick={shoot}>{L('shoot')}</button>}
@@ -404,7 +422,7 @@ function SaveLook({ lang, user, s, model, shot, bd, onSaved, setSession, log }: 
   const [k, setK] = useState('')
   const check = () => api.health().then(h => setKeyOk(h.keyOk)).catch(() => setKeyOk(false))
   useEffect(() => { check() }, [])
-  const days = RET_DAYS[s.consent?.retention ?? 'session']
+  const days = (s.consent?.days ?? 0)
   const canTry = !!s.consent?.ai && !!s.photo && !!model.image
   const cache = useRef<Record<string, string>>({})
 
@@ -416,7 +434,7 @@ function SaveLook({ lang, user, s, model, shot, bd, onSaved, setSession, log }: 
     let raw = s.tryons?.[m.id] || cache.current[m.id]
     if (!raw) {
       const t0 = Date.now()
-      raw = await dressBride(await shrink(s.photo!, 1024, 0.9), m.image!, n => setNote(n > 1 ? `ניסיון ${n} מתוך 3...` : ''))
+      raw = await dressBride(await shrink(s.photo!, 1024, 0.9), (m.garment || m.image)!, n => setNote(n > 1 ? `ניסיון ${n} מתוך 3...` : ''))
       cache.current[m.id] = raw
       setSession(x => x && { ...x, tryons: { ...x.tryons, [m.id]: raw! } })
       log(`הלבשה: ${m.name} (${Math.round((Date.now() - t0) / 1000)} שניות)`, 'privacy')
@@ -498,7 +516,7 @@ function SaveLook({ lang, user, s, model, shot, bd, onSaved, setSession, log }: 
 function GalleryLink({ lang, s }: { lang: Lang; s: Session }) {
   const L = (k: Key) => t(lang, k)
   const [copied, setCopied] = useState(false)
-  if (!RET_DAYS[s.consent?.retention ?? 'session']) return <p className="note">{L('localOnly')}</p>
+  if (!(s.consent?.days ?? 0)) return <p className="note">{L('localOnly')}</p>
   const url = galleryUrl(s.gallery)
   const saved = s.favorites.filter(f => f.lookUrl).length
   return (

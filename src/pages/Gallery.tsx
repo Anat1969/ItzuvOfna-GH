@@ -12,6 +12,8 @@ export default function Gallery({ lang, g }: { lang: Lang; g: string }) {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState('')
   const [zoom, setZoom] = useState<Look | null>(null)
+  const [who, setWho] = useState<{ photo: string; name: string }>({ photo: '', name: '' })
+  useEffect(() => { api.galleryWho(g).then(setWho).catch(() => null) }, [g])
   const [biz, setBiz] = useState<{ business?: string; whatsapp?: string; payUrl?: string }>({})
   useEffect(() => { api.settings().then(setBiz).catch(() => null) }, [])
   const order = () => {
@@ -21,7 +23,7 @@ export default function Gallery({ lang, g }: { lang: Lang; g: string }) {
   }
 
   const load = () => api.looks(g).then(l => { setLooks(l); setSel(s => s.filter(u => l.some(x => x.url === u))) }).catch(e => { setErr(e.message); setLooks([]) })
-  useEffect(() => { load() }, [g])
+  useEffect(() => { load(); const i = setInterval(load, 6000); return () => clearInterval(i) }, [g]) // זמן אמת: תמונות חדשות מהסטודיו מופיעות לבד
 
   const chosen = (looks ?? []).filter(l => sel.length ? sel.includes(l.url) : true)
   const name = (l: Look) => findModel(l.modelId)?.name ?? l.modelId
@@ -63,10 +65,13 @@ export default function Gallery({ lang, g }: { lang: Lang; g: string }) {
   return (
     <div className="gallery">
       <header className="g-head no-print">
-        <div>
+        <div className="g-who">
+          {who.photo && <img src={who.photo} alt="" />}
+          <div>
           <span className="kicker">קולקציה · סטודיו אופנה</span>
-          <h1>{L('gTitle')}</h1>
-          <p className="lead">{looks.length ? <>{L('gLead')} <b>{looks.length}</b> · {L('gUntil')} <b>{day(exp)}</b></> : L('gEmpty')}</p>
+          <h1>{who.name ? `${who.name}, הגלריה שלך` : L('gTitle')}</h1>
+          <p className="lead">{looks.length ? <>{L('gLead')} <b>{looks.length}</b> · {L('gUntil')} <b>{day(exp)}</b> · <span className="live">מתעדכן בזמן אמת</span></> : L('gEmpty')}</p>
+          </div>
         </div>
         {looks.length > 0 && (
           <div className="g-actions">

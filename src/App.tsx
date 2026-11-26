@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DIR, LANG_LABEL, t, type Lang } from './i18n'
 import { USERS, ROLE_HE, salonOf, setRemote, type Retention, type User } from './data'
 import { api, setKey } from './api'
@@ -14,7 +14,7 @@ import { newGalleryId } from './api'
 
 export type Page = 'cover' | 'studio' | 'library' | 'clients' | 'access' | 'roadmap' | 'gallery'
 
-export interface Consent { c1: boolean; c2: boolean; c3: boolean; o1: boolean; o2: boolean; o3: boolean; ai: boolean; retention: Retention; at: number }
+export interface Consent { c1: boolean; c2: boolean; c3: boolean; o1: boolean; o2: boolean; o3: boolean; ai: boolean; retention: Retention; days: number; at: number }
 export interface Fav { id: string; modelId: string; variation: string; size: number; transform: Transform; lookUrl?: string; engine?: 'local' | 'ai' }
 export interface OrderReq { status: 'pending' | 'approved' | 'declined'; at: number; by: string; fav: Fav; decidedBy?: string }
 export interface Session {
@@ -42,7 +42,6 @@ const fromHash = (): Page => { if (galleryFromHash()) return 'gallery'; const h 
 ;(() => { const m = /[?&]key=([^&]+)/.exec(location.hash); if (m) { setKey(decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname + location.hash.replace(/[?&]key=[^&]+/, '')) } })()
 
 export const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-const RET_MS: Record<Retention, number> = { session: 0, '24h': 864e5, '7d': 6048e5, '30d': 2592e6 }
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => { try { return (localStorage.getItem('sbs_lang') as Lang) || 'he' } catch { return 'he' } })
@@ -112,7 +111,7 @@ export default function App() {
         </div>
       </header>
 
-      {session && page === 'studio' && <Ribbon lang={lang} session={session} onWipe={() => wipe('לבקשת הכלה')} onEnd={endSession} />}
+      {session && page === 'studio' && <Ribbon lang={lang} session={session} onWipe={() => wipe('לבקשת הלקוחה')} onEnd={endSession} onStep={n => setSession(x => x && { ...x, step: Math.min(n, x.photo ? 5 : x.consent ? 2 : 1) })} />}
 
       <main className={`page page-${page}`}>
         {page === 'cover' && <Cover go={go} />}
@@ -121,12 +120,12 @@ export default function App() {
         {page === 'roadmap' && <Roadmap />}
         {page === 'library' && <Library user={user} onChange={refreshCatalog} log={w => log(w)} />}
         {page === 'gallery' && g && <Gallery lang={lang} g={g} />}
-        {page === 'clients' && <Clients user={user} onReuse={async (photo, name) => {
+        {page === 'clients' && <Clients user={user} onReuse={async (photo, name, gallery) => {
           // לקוחה חוזרת: סשן חדש עם התצלום מהארכיון, ישר לבחירת דגמים
           const b = await (await fetch(photo)).blob()
           const data = await new Promise<string>(ok => { const r = new FileReader(); r.onload = () => ok(r.result as string); r.readAsDataURL(b) })
           const id = `SES-${Date.now().toString(36).slice(-5).toUpperCase()}`
-          setSession({ id, gallery: newGalleryId(), openedAt: Date.now(), salon: user.salon, user: user.id, step: 1, consent: null, photo: data, photoKind: 'file', modelId: null, variation: null, size: null, transform: DEFAULT_T, favorites: [], request: null, tryons: {}, client: name, picked: [], backdrop: 'paper', shots: {} })
+          setSession({ id, gallery: gallery || newGalleryId(), openedAt: Date.now(), salon: user.salon, user: user.id, step: 1, consent: null, photo: data, photoKind: 'file', modelId: null, variation: null, size: null, transform: DEFAULT_T, favorites: [], request: null, tryons: {}, client: name, picked: [], backdrop: 'paper', shots: {} })
           log(`מדידה חדשה ללקוחה מהארכיון: ${name || 'ללא שם'}. נדרשת הסכמה מחדש`, 'privacy')
           go('studio')
         }} />}
@@ -135,23 +134,32 @@ export default function App() {
   )
 }
 
-function Ribbon({ lang, session, onWipe, onEnd }: { lang: Lang; session: Session; onWipe: () => void; onEnd: () => void }) {
-  const [, tick] = useState(0)
-  useEffect(() => { const i = setInterval(() => tick(x => x + 1), 1000); return () => clearInterval(i) }, [])
-  const ret = session.consent?.retention ?? 'session'
-  const until = useMemo(() => session.consent ? session.consent.at + RET_MS[ret] : 0, [session.consent, ret])
-  const kept = [session.photo && 'תצלום', session.favorites.length > 0 && `${session.favorites.length} בגלריה`].filter(Boolean).join(' · ')
-  const left = until - Date.now()
-  const leftTxt = ret === 'session' ? t(lang, 'r_session') : left > 1728e5 ? `${Math.ceil(left / 864e5)} ${lang === 'en' ? 'days' : lang === 'ar' ? 'أيام' : 'ימים'}` : `${Math.floor(left / 36e5)}:${String(Math.floor(left % 36e5 / 6e4)).padStart(2, '0')}:${String(Math.floor(left % 6e4 / 1e3)).padStart(2, '0')}`
+// מערכת הניווט: מחשבת מהסשן איפה הלקוחה במסלול, מה הושלם, ומה הצעד הבא
+function Ribbon({ session, onWipe, onEnd, onStep }: { lang: Lang; session: Session; onWipe: () => void; onEnd: () => void; onStep: (n: number) => void }) {
+  const fitted = Object.keys(session.tryons || {}).length
+  const saved = session.favorites.length
+  const stages = [
+    { k: 'client', label: session.client || 'לקוחה', done: !!session.consent, step: 1, hint: 'הסכמה מפורשת' },
+    { k: 'photo', label: 'צילום', done: !!session.photo, step: 2, hint: 'צילום לאורך, כל הגוף' },
+    { k: 'pick', label: session.picked.length ? `${session.picked.length} נבחרו` : 'בחירת דגמים', done: session.picked.length > 0 || !!session.modelId, step: 3, hint: 'סימון דגמים מהקולקציה' },
+    { k: 'fit', label: fitted ? `${fitted} נמדדו` : 'מדידה', done: fitted > 0, step: 4, hint: 'הלבשה על הלקוחה' },
+    { k: 'save', label: saved ? `${saved} בגלריה` : 'גלריה', done: saved > 0, step: 4, hint: 'שמירה לגלריה' },
+    { k: 'order', label: session.request ? 'הוזמן' : 'הזמנה', done: !!session.request, step: 5, hint: 'שליחת הגלריה והזמנה' },
+  ]
+  const next = stages.find(x => !x.done)
   return (
-    <div className={`ribbon${session.photo ? ' hot' : ''}`} role="status">
-      <span className="mono">{session.id}</span>
-      <span className="r-kept"><i />{session.photo || session.favorites.length ? `${t(lang, 'ribbonKept')}: ${kept}` : t(lang, 'ribbonNothing')}</span>
-      {session.consent && <span>{t(lang, 'ribbonUntil')}: <b className={ret === 'session' ? '' : 'mono'}>{leftTxt}</b></span>}
-      <span className="r-note">{t(lang, 'memOnly')}</span>
-      <span className="r-act">
-        <button className="danger" onClick={onWipe} disabled={!session.photo && !session.favorites.length}>{t(lang, 'deleteAll')}</button>
-        <button onClick={onEnd}>{t(lang, 'endSession')}</button>
+    <div className="journey" role="navigation" aria-label="מסלול הלקוחה">
+      <ol>
+        {stages.map((x, i) => (
+          <li key={x.k} className={`${x.done ? 'done' : ''}${next?.k === x.k ? ' now' : ''}`}>
+            <button onClick={() => onStep(x.step)}><span className="mono">{i + 1}</span>{x.label}</button>
+          </li>
+        ))}
+      </ol>
+      <span className="j-next">{next ? <>הבא: <b>{next.hint}</b></> : <b>המסלול הושלם</b>}</span>
+      <span className="j-act">
+        <button className="danger" onClick={onWipe} disabled={!session.photo && !saved}>מחיקת הכול</button>
+        <button onClick={onEnd}>סיום</button>
       </span>
     </div>
   )

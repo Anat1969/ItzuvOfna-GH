@@ -10,7 +10,8 @@ export interface Model {
   id: string // מזהה קבוע, לא משתנה בין עונות
   name: string
   silhouette?: Silhouette // רק בדגמי ההדגמה המאוירים
-  image?: string // דגם שהועלה: תמונה, בדרך כלל PNG עם רקע שקוף
+  image?: string // תמונת התצוגה (תמונת המגזין, אם הוכנה)
+  garment?: string // הצילום המקורי, להלבשה
   aspect?: number // רוחב חלקי גובה של התמונה
   uploaded?: boolean
   kind?: 'model' | 'background'
@@ -89,16 +90,16 @@ let REMOTE: Model[] = []
 export const VAR_PHOTO: Variation = { id: 'photo', label: { he: 'כמו בתמונה', en: 'As photographed', ar: 'كما في الصورة' }, fill: '#FFFFFF' }
 // שם קריא במקום שם קובץ של מצלמה או WhatsApp
 const ugly = /whatsapp|^img[ _-]?\d|^dsc|^image\s|^photo|^\d{6,}/i
-let BACKS: { id: string; name: string; url: string }[] = []
+let BACKS: { id: string; name: string; url: string; group: string }[] = []
 export const backgrounds = () => BACKS
 export function setRemote(all: any[]) {
-  BACKS = all.filter(m => m.kind === 'background').map(m => ({ id: m.id, name: m.name, url: m.image }))
+  BACKS = all.filter(m => m.kind === 'background').map(m => ({ id: m.id, name: m.name, url: m.image, group: m.collection || 'נוף' }))
   const list = all.filter(m => m.kind !== 'background').sort((a, b) => a.createdAt - b.createdAt)
   const count: Record<string, number> = {}
   for (const m of list) { count[m.collection] = (count[m.collection] || 0) + 1; m._n = count[m.collection]; if (ugly.test(m.name || '')) m.name = `דגם ${String(m._n).padStart(2, '0')}` }
   REMOTE = list.map(m => ({
     id: m.id, name: m.name, collection: m.collection, sizes: m.sizes, variations: [VAR_PHOTO], sleeves: false,
-    retailPrice: m.retailPrice || 0, image: m.image, aspect: m.aspect, uploaded: true, cutout: m.cutout !== false,
+    retailPrice: m.retailPrice || 0, image: m.cover || m.image, garment: m.image, aspect: m.cover ? 0.75 : m.aspect, uploaded: true, cutout: m.cutout !== false,
     rights: { source: m.rights, usage: 'שימוש בסלון', documented: new Date(m.createdAt).toLocaleDateString('he-IL') },
     salons: m.salons?.length ? m.salons : SALONS.map(x => x.id),
   }))
