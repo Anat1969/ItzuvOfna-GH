@@ -126,7 +126,7 @@ const T = {
   saveLook: { he: 'שמירה לגלריה של הכלה', en: "Save to the bride's gallery", ar: 'حفظ في معرض العروس' },
   savingLook: { he: 'שומר...', en: 'Saving...', ar: 'جارٍ الحفظ...' },
   aiBtn: { he: 'הפקה ב-AI', en: 'Generate with AI', ar: 'توليد بالذكاء الاصطناعي' },
-  aiOff: { he: 'מנוע AI לא מחובר. התמונה מופקת בהרכבה מקומית.', en: 'AI engine not connected. The image is composed locally.', ar: 'محرك الذكاء الاصطناعي غير متصل. تُركّب الصورة محليًا.' },
+  aiOff: { he: 'התמונה מורכבת במכשיר, בחינם. הדמיה מלאה ב-AI כבויה כי היא בתשלום.', en: 'The image is composed on the device, free. Full AI preview is off because it is paid.', ar: 'تُركّب الصورة على الجهاز مجانًا. المعاينة الكاملة بالذكاء الاصطناعي معطلة لأنها مدفوعة.' },
   aiBusy: { he: 'מפיק תמונה...', en: 'Generating...', ar: 'جارٍ التوليد...' },
   aiResult: { he: 'תוצאת AI', en: 'AI result', ar: 'نتيجة الذكاء الاصطناعي' },
   localOnly: { he: 'נבחרה שמירה עד סוף הסשן, ולכן אין גלריה. אפשר לשנות בשלב ההסכמה רק בסשן חדש.', en: 'Retention is session-only, so there is no gallery.', ar: 'الاحتفاظ حتى نهاية الجلسة فقط، لذلك لا يوجد معرض.' },

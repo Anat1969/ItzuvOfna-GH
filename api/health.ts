@@ -4,10 +4,10 @@ import { authed, send, q, type Req, type Res } from './_lib.js'
 const DEFAULT_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
 const same = (a: string, b: string) => !!a && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
 
-// מצב השירותים, ובדיקת מפתח הסטודיו בלי לחשוף אותו.
+// מצב השירותים, ובדיקת מפתח הסטודיו בלי לחשוף אותו. ai כבוי כל עוד AI_IMAGES לא on, כי הפקת תמונות ב-Gemini בתשלום.
 // ?probe=<מפתח סטודיו>: הפקה אחת קטנה מטקסט, כדי לוודא שמנוע ה-AI עובד ושיש מכסה.
 export default async function handler(req: Req, res: Res) {
-  const base = { storage: !!process.env.BLOB_READ_WRITE_TOKEN, ai: !!process.env.GEMINI_API_KEY, keyOk: authed(req) }
+  const base = { storage: !!process.env.BLOB_READ_WRITE_TOKEN, ai: !!process.env.GEMINI_API_KEY && process.env.AI_IMAGES === 'on', keyOk: authed(req) }
   const probe = q(req, 'probe')
   if (!probe || !same(probe, process.env.STUDIO_KEY || '')) return send(res, 200, base)
   const key = process.env.GEMINI_API_KEY

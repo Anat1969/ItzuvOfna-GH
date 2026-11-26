@@ -10,7 +10,7 @@ export default async function handler(req: Req, res: Res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'method' })
   if (!authed(req)) return send(res, 401, { error: 'מפתח סטודיו שגוי' })
   const key = process.env.GEMINI_API_KEY
-  if (!key) return send(res, 501, { error: 'מנוע AI לא מחובר' })
+  if (!key || process.env.AI_IMAGES !== 'on') return send(res, 501, { error: 'מנוע AI כבוי: הפקת תמונות דורשת תשלום' })
   const { photo, dress, name } = req.body || {}
   const p = strip(photo), d = strip(dress)
   if (!p || !d) return send(res, 400, { error: 'חסרות תמונות' })
