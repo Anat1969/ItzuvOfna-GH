@@ -10,9 +10,10 @@ import Roadmap from './pages/Roadmap'
 import Library from './pages/Library'
 import Gallery from './pages/Gallery'
 import Clients from './pages/Clients'
+import Orders from './pages/Orders'
 import { newGalleryId } from './api'
 
-export type Page = 'cover' | 'studio' | 'library' | 'clients' | 'access' | 'roadmap' | 'gallery'
+export type Page = 'cover' | 'studio' | 'library' | 'clients' | 'orders' | 'access' | 'roadmap' | 'gallery' | 'cgallery'
 
 export interface Consent { c1: boolean; c2: boolean; c3: boolean; o1: boolean; o2: boolean; o3: boolean; ai: boolean; retention: Retention; days: number; at: number }
 export interface Fav { id: string; modelId: string; variation: string; size: number; transform: Transform; lookUrl?: string; engine?: 'local' | 'ai' }
@@ -36,9 +37,10 @@ export interface AuditEntry { at: number; who: string; what: string; level: 'inf
 
 export const DEFAULT_T: Transform = { y: 22.5, scale: 74, width: 1.15 }
 
-const PAGES: Page[] = ['cover', 'studio', 'library', 'clients', 'access', 'roadmap']
-const galleryFromHash = () => /^#\/g\/([a-z0-9]{20,40})/.exec(location.hash)?.[1] ?? ''
-const fromHash = (): Page => { if (galleryFromHash()) return 'gallery'; const h = location.hash.replace('#/', '').split('?')[0] as Page; return PAGES.includes(h) ? h : 'cover' }
+const PAGES: Page[] = ['cover', 'studio', 'library', 'clients', 'orders', 'access', 'roadmap']
+const galleryFromHash = () => /^#\/(?:g|cg)\/([a-z0-9]{20,40})/.exec(location.hash)?.[1] ?? ''
+const staffGallery = () => /^#\/cg\//.test(location.hash)
+const fromHash = (): Page => { if (galleryFromHash()) return staffGallery() ? 'cgallery' : 'gallery'; const h = location.hash.replace('#/', '').split('?')[0] as Page; return PAGES.includes(h) ? h : 'cover' }
 // קישור אישי של בעלת הסלון: #/library?key=... שומר את המפתח במכשיר ומסיר אותו מהכתובת
 ;(() => { const m = /[?&]key=([^&]+)/.exec(location.hash); if (m) { setKey(decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname + location.hash.replace(/[?&]key=[^&]+/, '')) } })()
 
@@ -91,9 +93,9 @@ export default function App() {
           <b>קולקציה</b><span>סטודיו אופנה</span>
         </a>
         <nav className="nav">
-          {(['studio', 'library', 'clients', 'access', 'roadmap'] as Page[]).map(p => (
+          {(['studio', 'library', 'clients', 'orders', 'access', 'roadmap'] as Page[]).map(p => (
             <a key={p} href={`#/${p}`} className={page === p ? 'on' : ''} onClick={() => go(p)}>
-              {p === 'clients' ? 'לקוחות' : t(lang, p === 'studio' ? 'navStudio' : p === 'library' ? 'navLibrary' : p === 'access' ? 'navAccess' : 'navRoadmap')}
+              {p === 'clients' ? 'לקוחות' : p === 'orders' ? 'הזמנות' : t(lang, p === 'studio' ? 'navStudio' : p === 'library' ? 'navLibrary' : p === 'access' ? 'navAccess' : 'navRoadmap')}
             </a>
           ))}
         </nav>
@@ -121,6 +123,8 @@ export default function App() {
         {page === 'roadmap' && <Roadmap />}
         {page === 'library' && <Library user={user} onChange={refreshCatalog} log={w => log(w)} />}
         {page === 'gallery' && g && <Gallery lang={lang} g={g} />}
+        {page === 'cgallery' && g && <Gallery lang={lang} g={g} staff onBack={() => history.length > 1 ? history.back() : go('clients')} />}
+        {page === 'orders' && <Orders user={user} openGallery={id => { location.hash = `#/cg/${id}` }} />}
         {page === 'clients' && <Clients user={user} onReuse={async (photo, name, gallery) => {
           // לקוחה חוזרת: סשן חדש עם התצלום מהארכיון, ישר לבחירת דגמים
           const b = await (await fetch(photo)).blob()

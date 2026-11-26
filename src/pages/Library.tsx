@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { SALONS, can, type User } from '../data'
+import { SALONS, can, classifyBg, cleanBgName, BG_FOLDERS, type User } from '../data'
 import { api, getKey, setKey, type RemoteModel } from '../api'
 import { cutout, bgUniform, fileToDataUrl } from '../imaging'
 import { STUDIO, applyBackdrop, type Backdrop } from '../bg'
+import { IconBtn } from '../Icon'
 
 interface Draft {
   key: string; file: string; name: string; remove: boolean; tolerance: number; uniform: boolean
@@ -34,13 +35,21 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
 
   const reload = () => api.models().then(setModels).catch(e => setErr(e.message))
   useEffect(() => { reload(); api.health().then(h => setKeyOk(h.keyOk)).catch(() => setKeyOk(false)) }, [])
+  const sorted = useRef(false)
+  useEffect(() => {
+    if (keyOk !== true || sorted.current) return
+    const loose = models.filter(m => m.kind === 'background' && (!m.collection || m.collection === 'רקעים'))
+    if (!loose.length) return
+    sorted.current = true
+    ;(async () => { for (const m of loose) await api.saveModel({ ...m, collection: classifyBg(m.name), name: cleanBgName(m.name) }).catch(() => null); log(`${loose.length} רקעים מוינו לתיקיות`); await reload(); onChange() })()
+  }, [keyOk, models])
 
   const backs = models.filter(m => m.kind === 'background')
   const poses = models.filter(m => m.kind === 'pose')
   const coll = models.filter(m => m.kind !== 'background' && m.kind !== 'pose')
   const collections = [...new Set(coll.map(m => m.collection))]
   const allowed = can(user, 'catalog')
-  const CATS = ['חדר סטודיו', 'קיר סטודיו', 'נוף']
+  const CATS = BG_FOLDERS
   const bgCats = [...new Set([...CATS, ...backs.map(b => b.collection)])]
   // שינוי שם בזמן אמת: נשמר כשיוצאים מהשדה
   const rename = async (m: RemoteModel, name: string) => {
@@ -55,7 +64,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
   const card = (m: RemoteModel, extra?: JSX.Element) => (
     <li key={m.id}>
       <div className="checker"><img src={m.cover || m.image} alt={m.name} loading="lazy" />
-        <button className="xs" aria-label="מחיקה" title="מחיקה" disabled={keyOk !== true} onClick={() => remove(m)}>×</button>
+        <IconBtn icon="x" label="מחיקה" danger className="over-ib" disabled={keyOk !== true} onClick={() => remove(m)} />
       </div>
       <input className="name-edit" defaultValue={m.name} aria-label="שם" onBlur={e => rename(m, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
       {extra}
@@ -158,7 +167,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
               {drafts.map(d => (
                 <li key={d.key} className={d.state}>
                   <div className="checker">{d.out ? <img src={d.out.dataUrl} alt="" /> : <span className="muted">מעבד...</span>}
-                    <button className="xs" aria-label="הסרה" onClick={() => setDrafts(x => x.filter(y => y.key !== d.key))}>×</button></div>
+                    <IconBtn icon="x" label="הסרה" danger className="over-ib" onClick={() => setDrafts(x => x.filter(y => y.key !== d.key))} /></div>
                   <input className="name-edit" value={d.name} onChange={e => setDrafts(x => x.map(y => y.key === d.key ? { ...y, name: e.target.value } : y))} aria-label="שם הדגם" />
                   {d.uniform && <label className="check mini"><input type="checkbox" checked={d.remove} onChange={e => tweak(d.key, { remove: e.target.checked })} /><span>חיתוך רקע</span></label>}
                   {d.err && <p className="deny">{d.err}</p>}
@@ -174,7 +183,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
             <div key={c} className="col-row">
               <h3>{c} <span className="muted">· {coll.filter(m => m.collection === c).length}</span></h3>
               <ul className="shelf-grid">
-                {coll.filter(m => m.collection === c).map(m => card(m, <button className="ghost small" disabled={keyOk !== true} onClick={() => setUpgrade({ m })}>{m.cover ? 'רקע מגזין · שינוי' : 'רקע מגזין'}</button>))}
+                {coll.filter(m => m.collection === c).map(m => card(m, <div className="card-tools"><IconBtn icon="wand" label={m.cover ? 'רקע מגזין: שינוי' : 'רקע מגזין'} disabled={keyOk !== true} onClick={() => setUpgrade({ m })} />{m.cover && <span className="tag">מגזין</span>}</div>))}
               </ul>
             </div>
           ))}
@@ -210,7 +219,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
           {bgCats.filter(c => backs.some(b => b.collection === c)).map(c => (
             <div key={c} className="col-row">
               <h3>{c} <span className="muted">· {backs.filter(b => b.collection === c).length}</span></h3>
-              <ul className="shelf-grid wide">{backs.filter(b => b.collection === c).map(m => card(m))}</ul>
+              <ul className="shelf-grid wide">{backs.filter(b => b.collection === c).map(m => card(m, <select className="mini-sel" aria-label="העברה לתיקייה" value={m.collection} disabled={keyOk !== true} onChange={async e => { await api.saveModel({ ...m, collection: e.target.value }).catch(er => setErr(er.message)); await reload(); onChange() }}>{bgCats.map(x => <option key={x} value={x}>{x}</option>)}</select>))}</ul>
             </div>
           ))}
         </section>
@@ -261,7 +270,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
       {upgrade && (
         <div className="modal" role="dialog" onClick={e => { if (e.target === e.currentTarget && !upgrade.busy) setUpgrade(null) }}>
           <div className="modal-box">
-            <div className="row between"><h2>רקע מגזין · {upgrade.m.name}</h2><button className="xs static" onClick={() => setUpgrade(null)}>×</button></div>
+            <div className="row between"><h2>רקע מגזין · {upgrade.m.name}</h2><IconBtn icon="x" label="סגירה" onClick={() => setUpgrade(null)} /></div>
             <div className="up-grid">
               <figure><img src={upgrade.img || upgrade.m.image} alt="" />{upgrade.busy && <figcaption>מעבד...</figcaption>}</figure>
               <div className="stack">
@@ -271,7 +280,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
                     setUpgrade(u => u && { ...u, bd: b, busy: true })
                     try { const img = await applyBackdrop(upgrade.m.image, b); setUpgrade(u => u && { ...u, img, busy: false }) }
                     catch { setErr('לא זוהתה דמות בתמונה'); setUpgrade(u => u && { ...u, busy: false }) }
-                  }}><i style={b.kind === 'studio' ? { background: `radial-gradient(circle at 50% 35%, ${b.tones![0]}, ${b.tones![1]} 60%, ${b.tones![2]})` } : { backgroundImage: `url(${b.url})` }} />{b.label}</button>
+                  }}><i style={b.kind === 'studio' ? { background: `radial-gradient(circle at 50% 35%, ${b.tones![0]}, ${b.tones![1]} 60%, ${b.tones![2]})` } : { backgroundImage: `url(${b.url})` }} /><span className="bl">{b.label}</span></button>
                 ))}</div>
                 <p className="note">התמונה המשודרגת מוצגת בקטלוג ובכריכה. ההלבשה על הלקוחה ממשיכה להשתמש בצילום המקורי, כדי לשמור על פרטי הבד.</p>
                 <div className="row">

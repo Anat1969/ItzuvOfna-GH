@@ -10,6 +10,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   return j as T
 }
 
+export interface Order { id: string; g: string; client: string; source: 'gallery' | 'studio'; items: { modelId: string; name: string; price: number; image: string }[]; total: number; status: 'new' | 'approved' | 'paid' | 'delivered' | 'cancelled'; note: string; createdAt: number; updatedAt?: number }
 export interface Biz { business?: string; whatsapp?: string; payUrl?: string; retentionDays?: number }
 export interface Health { storage: boolean; ai: boolean; keyOk: boolean }
 export interface RemoteModel { kind?: 'model' | 'background' | 'pose'; cover?: string; id: string; name: string; collection: string; sizes: number[]; salons: string[]; retailPrice: number; aspect: number; cutout: boolean; rights: string; image: string; createdAt: number }
@@ -27,6 +28,10 @@ export const api = {
   deleteGallery: (g: string) => call('/api/looks?g=' + g + '&all=1', { method: 'DELETE' }),
   settings: () => call<Biz>('/api/settings'),
   saveSettings: (s: Biz) => call('/api/settings', { method: 'POST', body: JSON.stringify(s) }),
+  orders: () => call<Order[]>('/api/orders'),
+  createOrder: (o: { g: string; client?: string; source: 'gallery' | 'studio'; items: { modelId: string; name: string; price: number; image: string }[] }) => call<Order>('/api/orders', { method: 'POST', body: JSON.stringify(o) }),
+  updateOrder: (id: string, patch: Partial<Pick<Order, 'status' | 'note' | 'total' | 'client'>>) => call<Order>('/api/orders', { method: 'POST', body: JSON.stringify({ id, patch }) }),
+  deleteOrder: (id: string) => call('/api/orders?id=' + id, { method: 'DELETE' }),
   clients: () => call<{ gallery: string; name: string; expires: number; createdAt: number; photos: string[] }[]>('/api/clients'),
   saveClient: (g: string, image: string, name: string, days: number) => call('/api/clients', { method: 'POST', body: JSON.stringify({ g, image, name, days }) }),
   renameClient: (g: string, name: string) => call('/api/clients', { method: 'POST', body: JSON.stringify({ g, name, rename: true }) }),

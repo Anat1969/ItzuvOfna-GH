@@ -6,6 +6,7 @@ import { composeLook, composePair, shrink } from '../imaging'
 import { dressBride, poseBride } from '../tryon'
 import { STUDIO, applyBackdrop, type Backdrop } from '../bg'
 import { backgrounds, poseRefs } from '../data'
+import { IconBtn } from '../Icon'
 import { activeEngine } from '../engine'
 import { Stage, Dress } from '../Stage'
 import { DEFAULT_T, fmtTime, type AuditEntry, type Consent, type Fav, type Page, type Session } from '../App'
@@ -153,9 +154,9 @@ export default function Studio(p: Props) {
                 <button className={bd.kind === 'original' ? 'on' : ''} onClick={() => upd({ backdrop: 'orig' })}>מקור</button>
                 {groups.map(g => <button key={g} className={bgGroup === g ? 'on' : ''} onClick={() => setBgGroup(g)}>{g} · {backs.filter(b => (b.group || 'נוף') === g && b.kind !== 'original').length}</button>)}
               </div>
-              <div className="backs">{backs.filter(b => b.kind !== 'original' && (b.group || 'נוף') === bgGroup).map(b => (
+              <div className="backs tiles">{backs.filter(b => b.kind !== 'original' && (b.group || 'נוף') === bgGroup).map(b => (
                 <button key={b.id} className={bd.id === b.id ? 'on' : ''} onClick={() => upd({ backdrop: b.id })} title={b.label}>
-                  <i style={b.kind === 'studio' ? { background: `radial-gradient(circle at 50% 35%, ${b.tones![0]}, ${b.tones![1]} 60%, ${b.tones![2]})` } : b.kind === 'image' ? { backgroundImage: `url(${b.url})` } : s.photo ? { backgroundImage: `url(${dressed || s.photo})` } : {}} />{b.label}
+                  <i style={b.kind === 'studio' ? { background: `radial-gradient(circle at 50% 35%, ${b.tones![0]}, ${b.tones![1]} 60%, ${b.tones![2]})` } : b.kind === 'image' ? { backgroundImage: `url(${b.url})` } : s.photo ? { backgroundImage: `url(${dressed || s.photo})` } : {}} /><span className="bl">{b.label}</span>
                 </button>
               ))}</div>
               {!dressed && <p className="note">הרקע מוחלף על התמונה של הלקוחה בשמלה, אחרי "הלבשה".</p>}
@@ -350,16 +351,16 @@ function Favs({ lang, s, cmp, setCmp, onDelete }: { lang: Lang; s: Session; cmp:
   return (
     <div>
       <span className="lbl">{L('inGallery')} · {s.favorites.length} · {L('favPick')}</span>
-      <ul className="favs">
+      <ul className="looks-strip">
         {s.favorites.map(f => {
-          const m = findModel(f.modelId)!
+          const m = findModel(f.modelId)
           return (
             <li key={f.id} className={cmp.includes(f.id) ? 'on' : ''}>
-              <button className="fav-pick" onClick={() => setCmp(c => c.includes(f.id) ? c.filter(x => x !== f.id) : [...c, f.id].slice(-2))}>
-                <Dress model={m} fill={fillOf(f.modelId, f.variation)} uid={`f${f.id}`} />
-                <span><b>{m.name}</b><br /><span className="mono">{L('size')} {f.size}</span></span>
+              <button className="ls-img" title={m?.name} onClick={() => setCmp(c => c.includes(f.id) ? c.filter(x => x !== f.id) : [...c, f.id].slice(-2))}>
+                <img src={f.lookUrl || m?.image} alt={m?.name || ''} loading="lazy" />
               </button>
-              <button className="x danger" aria-label={L('del')} onClick={() => onDelete(f.id)}>{L('del')}</button>
+              <IconBtn icon="x" label={L('del')} danger className="over-ib" onClick={() => onDelete(f.id)} />
+              <span className="ls-name">{m?.name}</span>
             </li>
           )
         })}
@@ -392,7 +393,7 @@ function FollowStep({ lang, user, s, setSession, log, audit, onPick }: Props & {
       </dl>
       <GalleryLink lang={lang} s={s} />
       {!r && <>
-        <button className="primary big" disabled={!can(user, 'requestOrder')} onClick={() => { setReq({ status: 'pending', at: Date.now(), by: user.name, fav }); log(`נשלחה בקשה להזמנה: ${m.id} מידה ${fav.size}`) }}>{L('requestOrder')}</button>
+        <button className="primary big" disabled={!can(user, 'requestOrder')} onClick={() => { setReq({ status: 'pending', at: Date.now(), by: user.name, fav }); api.createOrder({ g: s.gallery, client: s.client, source: 'studio', items: [{ modelId: m.id, name: m.name, price: m.retailPrice || 0, image: fav.lookUrl || m.image || '' }] }).catch(() => null); log(`נשלחה בקשה להזמנה: ${m.id} מידה ${fav.size}`) }}>{L('requestOrder')}</button>
         {!can(user, 'requestOrder') && <p className="deny">{L('noPerm')}: {ROLE_HE[user.role]} יכולה לשמור מועדפים ולהעביר ליועצת.</p>}
         <button className="ghost" onClick={() => log('סומן להמשך טיפול ללא הזמנה')}>{L('followUp')}</button>
       </>}
@@ -564,7 +565,7 @@ function GalleryLink({ lang, s }: { lang: Lang; s: Session }) {
       <div className="row">
         <button onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { /* ignore */ } }}>{copied ? L('copied') : L('copy')}</button>
         <a className="btn" href={`https://wa.me/?text=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer">{L('whatsapp')}</a>
-        <a className="btn" href={url} target="_blank" rel="noreferrer">{L('openGallery')}</a>
+        <button onClick={() => { location.hash = `#/cg/${s.gallery}` }}>{L('openGallery')}</button>
       </div>
     </div>
   )

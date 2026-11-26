@@ -97,7 +97,7 @@ let POSES: string[] = []
 export const poseRefs = (exceptGarment?: string) => (POSES.length ? POSES : REMOTE.map(m => m.garment!).filter(Boolean)).filter(u => u !== exceptGarment)
 export function setRemote(all: any[]) {
   POSES = all.filter(m => m.kind === 'pose').map(m => m.image)
-  BACKS = all.filter(m => m.kind === 'background').map(m => ({ id: m.id, name: m.name, url: m.image, group: m.collection || 'נוף' }))
+  BACKS = all.filter(m => m.kind === 'background').map(m => ({ id: m.id, name: cleanBgName(m.name), url: m.image, group: BG_FOLDERS.includes(m.collection) || (m.collection && m.collection !== 'רקעים') ? m.collection : classifyBg(m.name) }))
   const list = all.filter(m => m.kind !== 'background' && m.kind !== 'pose').sort((a, b) => a.createdAt - b.createdAt)
   const count: Record<string, number> = {}
   for (const m of list) { count[m.collection] = (count[m.collection] || 0) + 1; m._n = count[m.collection]; if (ugly.test(m.name || '')) m.name = `דגם ${String(m._n).padStart(2, '0')}` }
@@ -116,3 +116,18 @@ export const salonOf = (u: User) => SALONS.find(s => s.id === u.salon)!
 
 // מה שאין במערכת בכלל, ולכן לא יכול לדלוף
 export const NEVER = ['מחירי רכישה', 'לקוחות של סלונים אחרים', 'ספרי החנות', 'נתוני החברה הבינלאומית']
+
+// מיון רקעים לתיקיות לפי השם: חלל ואדריכלות לחדר, טקסטורה וצבע לקיר, טבע לנוף
+export const BG_FOLDERS = ['חדר סטודיו', 'קיר סטודיו', 'נוף']
+export function classifyBg(name: string) {
+  const n = ` ${(name || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ')} ` // מילים שלמות בלבד
+  const has = (words: string[]) => words.some(w => n.includes(` ${w} `) || n.includes(` ${w}`) && w.length > 3)
+  if (has(['חלל', 'חדר', 'סטודיו', 'קשת', 'קשתות', 'אולם', 'תיכוני', 'room', 'interior', 'arch', 'hall', 'loft', 'studio'])) return 'חדר סטודיו'
+  if (has(['נוף', 'חוף', 'ים', 'גן', 'יער', 'שדה', 'מדבר', 'beach', 'sea', 'garden', 'forest', 'field', 'desert', 'landscape', 'mountain', 'park'])) return 'נוף'
+  return 'קיר סטודיו' // טקסטורות, צבעים, בדים: קיר רקע
+}
+/** שם רקע קצר וקריא: בלי קידומת מחולל, עד ארבע מילים */
+export function cleanBgName(name: string) {
+  const s = (name || '').replace(/^anatsht\s+/i, '').replace(/\s+(and|with)\s+.*$/i, '').replace(/[_-]+/g, ' ').trim()
+  return s.split(/\s+/).slice(0, 4).join(' ') || 'רקע'
+}
