@@ -23,6 +23,7 @@ export const api = {
   saveLook: (g: string, image: string, modelId: string, days: number, engine: 'local' | 'ai') => call<{ url: string; expires: number }>('/api/looks', { method: 'POST', body: JSON.stringify({ g, image, modelId, days, engine }) }),
   deleteLook: (g: string, url: string) => call('/api/looks?g=' + g + '&url=' + encodeURIComponent(url), { method: 'DELETE' }),
   deleteGallery: (g: string) => call('/api/looks?g=' + g + '&all=1', { method: 'DELETE' }),
+  tryon: (person: string, garment: string) => call<{ image: string; ms: number }>('/api/tryon', { method: 'POST', body: JSON.stringify({ person, garment }) }),
   generate: (photo: string, dress: string, name: string) => call<{ image: string }>('/api/generate', { method: 'POST', body: JSON.stringify({ photo, dress, name }) }),
 }
 

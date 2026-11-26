@@ -31,6 +31,7 @@ const T = {
   optional: { he: 'אישורים נפרדים, כבויים כברירת מחדל', en: 'Separate permissions, off by default', ar: 'أذونات منفصلة، معطلة افتراضيًا' },
   o1: { he: 'שימוש בתמונה לקידום ושיווק', en: 'Use of the image for marketing', ar: 'استخدام الصورة للتسويق' },
   o2: { he: 'שימוש בתמונה לאימון מודלים', en: 'Use of the image to train models', ar: 'استخدام الصورة لتدريب النماذج' },
+  cAi: { he: 'הלבשה על התצלום שלי: התצלום יישלח לעיבוד בשירות AI חיצוני וחינמי (Leffa, ב-Hugging Face), שאינו בשליטת הסלון. בלי האישור הזה הדגם יוצג רק לצידי.', en: 'Dress me in the photo: my photo is sent to an external free AI service (Leffa on Hugging Face) outside the salon’s control. Without this, the dress is only shown beside me.', ar: 'إلباسي في الصورة: تُرسل صورتي إلى خدمة ذكاء اصطناعي خارجية مجانية (Leffa على Hugging Face) خارج سيطرة الصالون. بدون ذلك يُعرض الفستان بجانبي فقط.' },
   o3: { he: 'שליחת ההדמיה אליי לאחר הסשן', en: 'Send me the preview after the session', ar: 'إرسال المعاينة إلي بعد الجلسة' },
   retention: { he: 'משך שמירה', en: 'Retention', ar: 'مدة الاحتفاظ' },
   r_session: { he: 'עד סוף הסשן', en: 'Until session ends', ar: 'حتى نهاية الجلسة' },
@@ -139,6 +140,15 @@ const T = {
   inGallery: { he: 'בגלריה', en: 'in gallery', ar: 'في المعرض' },
   collection: { he: 'קולקציה', en: 'Collection', ar: 'المجموعة' },
   allCols: { he: 'הכול', en: 'All', ar: 'الكل' },
+  tryBtn: { he: 'הלבשה על הכלה', en: 'Dress the bride', ar: 'إلباس العروس' },
+  tryBusy: { he: 'מלבישה... כ-20 שניות', en: 'Dressing... about 20 seconds', ar: 'جارٍ الإلباس... نحو 20 ثانية' },
+  tryAll: { he: 'מדידת כל הקולקציה', en: 'Try the whole collection', ar: 'تجربة المجموعة كاملة' },
+  tryStop: { he: 'עצירה', en: 'Stop', ar: 'إيقاف' },
+  tryNoConsent: { he: 'הלבשה על הכלה דורשת אישור נפרד בשלב ההסכמה. בלעדיו הדגם מוצג לצידה.', en: 'Dressing the bride needs a separate consent. Without it the dress is shown beside her.', ar: 'الإلباس يتطلب موافقة منفصلة. بدونها يُعرض الفستان بجانبها.' },
+  tryNoPhoto: { he: 'הלבשה דורשת תצלום אמיתי של הכלה, לאורך.', en: 'Dressing needs a real portrait photo of the bride.', ar: 'الإلباس يتطلب صورة حقيقية طولية للعروس.' },
+  tryDone: { he: 'נשמרו לגלריה', en: 'saved to gallery', ar: 'حُفظت في المعرض' },
+  portraitOnly: { he: 'התמונה לרוחב. צריך תמונה לאורך: כל הגוף בפריים, מהראש עד הרגליים.', en: 'This photo is landscape. Use a portrait photo, full body from head to feet.', ar: 'الصورة أفقية. استخدمي صورة طولية، الجسم كاملًا من الرأس إلى القدمين.' },
+  portraitHint: { he: 'לאורך בלבד: עמידה ישרה, כל הגוף בתוך המסגרת, ידיים מעט מהגוף, רקע פשוט ואור רך.', en: 'Portrait only: stand straight, whole body inside the frame, arms slightly away, plain background, soft light.', ar: 'طولي فقط: قفي باستقامة، الجسم كله داخل الإطار، الذراعان بعيدتان قليلًا، خلفية بسيطة وضوء ناعم.' },
 } as const
 
 export type Key = keyof typeof T

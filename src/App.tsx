@@ -12,7 +12,7 @@ import Gallery from './pages/Gallery'
 
 export type Page = 'cover' | 'studio' | 'library' | 'access' | 'roadmap' | 'gallery'
 
-export interface Consent { c1: boolean; c2: boolean; c3: boolean; o1: boolean; o2: boolean; o3: boolean; retention: Retention; at: number }
+export interface Consent { c1: boolean; c2: boolean; c3: boolean; o1: boolean; o2: boolean; o3: boolean; ai: boolean; retention: Retention; at: number }
 export interface Fav { id: string; modelId: string; variation: string; size: number; transform: Transform; lookUrl?: string; engine?: 'local' | 'ai' }
 export interface OrderReq { status: 'pending' | 'approved' | 'declined'; at: number; by: string; fav: Fav; decidedBy?: string }
 export interface Session {
@@ -23,6 +23,7 @@ export interface Session {
   transform: Transform
   favorites: Fav[]
   request: OrderReq | null
+  tryons: Record<string, string> // דגם ← תמונת הכלה בשמלה, בזיכרון בלבד
 }
 export interface AuditEntry { at: number; who: string; what: string; level: 'info' | 'privacy' | 'deny' | 'approve' }
 
@@ -69,7 +70,7 @@ export default function App() {
   const wipe = (reason: string) => {
     if (!session) return
     if (session.favorites.some(f => f.lookUrl)) api.deleteGallery(session.gallery).catch(() => null)
-    setSession(s => s && { ...s, photo: null, photoKind: null, favorites: [], step: Math.min(s.step, 2) })
+    setSession(s => s && { ...s, photo: null, photoKind: null, favorites: [], tryons: {}, step: Math.min(s.step, 2) })
     log(`מחיקה: ${reason}. התצלום נמחק מהמכשיר, והגלריה נמחקה מהשרת`, 'privacy')
   }
   const endSession = () => { if (!session) return; log(`סיום סשן ${session.id}. כל הנתונים נמחקו`, 'privacy'); setSession(null) }
