@@ -20,32 +20,33 @@ const FOLDS: Record<Silhouette, string> = {
   offshoulder: 'M100 92 L100 300 M88 94 L64 298 M112 94 L136 298 M80 98 L42 296 M120 98 L158 296',
 }
 
-export function Dress({ model, fill, uid }: { model: Model; fill: string; uid: string }) {
-  const s = model.silhouette
+// מחרוזת SVG אחת משמשת גם למסך וגם להרכבת התמונה הסופית
+export function dressSvg(model: Model, fill: string, uid: string) {
+  const s = model.silhouette ?? 'aline'
   const w = WAIST[s]
-  return (
-    <svg viewBox="-10 -10 220 320" className="dress" aria-label={`${model.id} ${model.name}`} direction="ltr">
-      <defs>
-        <linearGradient id={`vol-${uid}`} x1="0" x2="1">
-          <stop offset="0" stopColor="#000" stopOpacity=".16" />
-          <stop offset=".35" stopColor="#000" stopOpacity="0" />
-          <stop offset=".65" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity=".16" />
-        </linearGradient>
-      </defs>
-      {model.sleeves && (
-        <g fill={fill} fillOpacity=".55" stroke="#2a2a2a" strokeWidth=".7">
-          <path d={s === 'offshoulder' ? 'M46 6 L30 150 L42 152 L54 18 Z' : 'M70 0 L50 6 L40 150 L52 152 L66 34 Z'} />
-          <path d={s === 'offshoulder' ? 'M154 6 L170 150 L158 152 L146 18 Z' : 'M130 0 L150 6 L160 150 L148 152 L134 34 Z'} />
-        </g>
-      )}
-      <path d={BODY[s]} fill={fill} stroke="#2a2a2a" strokeWidth=".9" strokeLinejoin="round" />
-      <path d={BODY[s]} fill={`url(#vol-${uid})`} />
-      <path d={FOLDS[s]} fill="none" stroke="#2a2a2a" strokeOpacity=".28" strokeWidth=".6" />
-      <path d={`M${s === 'empire' ? 76 : 77} ${w} Q100 ${w + 5} ${s === 'empire' ? 124 : 123} ${w}`} fill="none" stroke="#2a2a2a" strokeWidth=".7" />
-    </svg>
-  )
+  const sleeves = model.sleeves ? `<g fill="${fill}" fill-opacity=".55" stroke="#2a2a2a" stroke-width=".7">
+      <path d="${s === 'offshoulder' ? 'M46 6 L30 150 L42 152 L54 18 Z' : 'M70 0 L50 6 L40 150 L52 152 L66 34 Z'}"/>
+      <path d="${s === 'offshoulder' ? 'M154 6 L170 150 L158 152 L146 18 Z' : 'M130 0 L150 6 L160 150 L148 152 L134 34 Z'}"/></g>` : ''
+  const wx = s === 'empire' ? [76, 124] : [77, 123]
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 220 320" class="dress" direction="ltr" width="220" height="320">
+    <defs><linearGradient id="vol-${uid}" x1="0" x2="1">
+      <stop offset="0" stop-color="#000" stop-opacity=".16"/><stop offset=".35" stop-color="#000" stop-opacity="0"/>
+      <stop offset=".65" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></linearGradient></defs>
+    ${sleeves}
+    <path d="${BODY[s]}" fill="${fill}" stroke="#2a2a2a" stroke-width=".9" stroke-linejoin="round"/>
+    <path d="${BODY[s]}" fill="url(#vol-${uid})"/>
+    <path d="${FOLDS[s]}" fill="none" stroke="#2a2a2a" stroke-opacity=".28" stroke-width=".6"/>
+    <path d="M${wx[0]} ${w} Q100 ${w + 5} ${wx[1]} ${w}" fill="none" stroke="#2a2a2a" stroke-width=".7"/></svg>`
 }
+
+export const dressAspect = (m: Model) => m.image ? (m.aspect ?? 0.6) : 220 / 320
+
+export function Dress({ model, fill, uid }: { model: Model; fill: string; uid: string }) {
+  if (model.image) return <img className="dress dress-img" src={model.image} alt={`${model.id} ${model.name}`} draggable={false} />
+  return <span className="dress-svg" aria-label={`${model.id} ${model.name}`} dangerouslySetInnerHTML={{ __html: dressSvg(model, fill, uid) }} />
+}
+
+export const FIGURE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 520" width="300" height="520"><g fill="#E6E4E1" stroke="#5a5a5a" stroke-width="1.2" stroke-linejoin="round"><ellipse cx="150" cy="62" rx="27" ry="34"/><path d="M138 92 L138 110 Q120 116 104 120 Q94 124 92 140 L82 270 Q80 282 90 284 L96 282 L108 160 L112 230 Q108 300 116 380 L120 506 L142 506 L146 330 L150 300 L154 330 L158 506 L180 506 L184 380 Q192 300 188 230 L192 160 L204 282 L210 284 Q220 282 218 270 L208 140 Q206 124 196 120 Q180 116 162 110 L162 92 Z"/></g></svg>`
 
 // דמות הדגמה ניטרלית: לא אדם אמיתי, כדי שאפשר יהיה לנסות בלי צילום.
 export function DemoFigure() {
@@ -74,7 +75,7 @@ export function Stage({ photo, model, fill, transform, watermark, uid, small }: 
     <div className={`stage${small ? ' small' : ''}`}>
       {photo ? <img src={photo} alt="" className="photo" /> : <DemoFigure />}
       {model && (
-        <div className="dress-wrap" style={{ top: `${transform.y}%`, height: `${transform.scale}%`, transform: `translateX(-50%) scaleX(${transform.width})` }}>
+        <div className="dress-wrap" style={{ top: `${transform.y}%`, height: `${transform.scale}%`, aspectRatio: String(dressAspect(model)), transform: `translateX(-50%) scaleX(${transform.width})` }}>
           <Dress model={model} fill={fill} uid={uid} />
         </div>
       )}

@@ -9,7 +9,10 @@ export interface Variation { id: string; label: { he: string; en: string; ar: st
 export interface Model {
   id: string // מזהה קבוע, לא משתנה בין עונות
   name: string
-  silhouette: Silhouette
+  silhouette?: Silhouette // רק בדגמי ההדגמה המאוירים
+  image?: string // דגם שהועלה: תמונה, בדרך כלל PNG עם רקע שקוף
+  aspect?: number // רוחב חלקי גובה של התמונה
+  uploaded?: boolean
   collection: string
   sizes: number[]
   variations: Variation[]
@@ -24,7 +27,8 @@ export interface Salon { id: string; name: string; place: string; jurisdiction: 
 export type Role = 'owner' | 'consultant' | 'trainee'
 export interface User { id: string; name: string; salon: string; role: Role }
 
-export type Retention = 'session' | '24h' | '7d'
+export type Retention = 'session' | '24h' | '7d' | '30d'
+export const RET_DAYS: Record<Retention, number> = { session: 0, '24h': 1, '7d': 7, '30d': 30 }
 
 export const VAR = {
   ivory: { id: 'ivory', label: { he: 'שנהב', en: 'Ivory', ar: 'عاجي' }, fill: '#F2EBDD' },
@@ -45,7 +49,7 @@ export const MODELS: Model[] = [
 ]
 
 export const SALONS: Salon[] = [
-  { id: 's-hfa', name: 'סלון הדגמה א׳', place: 'חיפה Haifa, Israel', jurisdiction: 'IL', retentionDefault: 'session' },
+  { id: 's-hfa', name: 'סלון הדגמה א׳', place: 'חיפה Haifa, Israel', jurisdiction: 'IL', retentionDefault: '7d' },
   { id: 's-par', name: 'סלון הדגמה ב׳', place: 'פריז Paris, France', jurisdiction: 'EU', retentionDefault: 'session' },
 ]
 
@@ -58,7 +62,7 @@ export const USERS: User[] = [
 ]
 
 // מטריצת הרשאות קשיחה. בפועל תיאכף בשרת (RLS), כאן היא מודגמת בצד הלקוח.
-export type Action = 'session' | 'capture' | 'favorites' | 'requestOrder' | 'approveOrder' | 'seePrice' | 'sendQuote' | 'audit'
+export type Action = 'session' | 'capture' | 'favorites' | 'requestOrder' | 'approveOrder' | 'seePrice' | 'sendQuote' | 'audit' | 'catalog'
 export const ACTIONS: { id: Action; he: string }[] = [
   { id: 'session', he: 'פתיחת סשן הדמיה' },
   { id: 'capture', he: 'צילום בהסכמה' },
@@ -68,16 +72,31 @@ export const ACTIONS: { id: Action; he: string }[] = [
   { id: 'sendQuote', he: 'מסירת הצעת מחיר' },
   { id: 'approveOrder', he: 'אישור הזמנה' },
   { id: 'audit', he: 'יומן פעולות מלא' },
+  { id: 'catalog', he: 'העלאת דגמים למאגר' },
 ]
 export const PERMS: Record<Role, Action[]> = {
-  owner: ['session', 'capture', 'favorites', 'requestOrder', 'seePrice', 'sendQuote', 'approveOrder', 'audit'],
+  owner: ['session', 'capture', 'favorites', 'requestOrder', 'seePrice', 'sendQuote', 'approveOrder', 'audit', 'catalog'],
   consultant: ['session', 'capture', 'favorites', 'requestOrder', 'seePrice'],
   trainee: ['session', 'capture', 'favorites'],
 }
 export const ROLE_HE: Record<Role, string> = { owner: 'בעלת סלון', consultant: 'יועצת', trainee: 'מתלמדת' }
 
 export const can = (u: User, a: Action) => PERMS[u.role].includes(a)
-export const modelsFor = (u: User) => MODELS.filter(m => m.salons.includes(u.salon))
+// הקטלוג המלא: דגמים שהועלו למאגר, ואחריהם דגמי ההדגמה המאוירים
+let REMOTE: Model[] = []
+export const VAR_PHOTO: Variation = { id: 'photo', label: { he: 'כמו בתמונה', en: 'As photographed', ar: 'كما في الصورة' }, fill: '#FFFFFF' }
+export function setRemote(list: any[]) {
+  REMOTE = list.map(m => ({
+    id: m.id, name: m.name, collection: m.collection, sizes: m.sizes, variations: [VAR_PHOTO], sleeves: false,
+    retailPrice: m.retailPrice || 0, image: m.image, aspect: m.aspect, uploaded: true,
+    rights: { source: m.rights, usage: 'שימוש בסלון', documented: new Date(m.createdAt).toLocaleDateString('he-IL') },
+    salons: m.salons?.length ? m.salons : SALONS.map(x => x.id),
+  }))
+}
+export const allModels = () => [...REMOTE, ...MODELS]
+export const findModel = (id: string | null | undefined) => allModels().find(m => m.id === id)
+export const modelsFor = (u: User) => allModels().filter(m => m.salons.includes(u.salon))
+export const collectionsOf = (list: Model[]) => [...new Set(list.map(m => m.collection))]
 export const salonOf = (u: User) => SALONS.find(s => s.id === u.salon)!
 
 // מה שאין במערכת בכלל, ולכן לא יכול לדלוף
