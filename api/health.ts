@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { authed, send, q, type Req, type Res } from './_lib.js'
 
-const MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
+const DEFAULT_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
 const same = (a: string, b: string) => !!a && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
 
 // מצב השירותים, ובדיקת מפתח הסטודיו בלי לחשוף אותו.
@@ -12,6 +12,7 @@ export default async function handler(req: Req, res: Res) {
   if (!probe || !same(probe, process.env.STUDIO_KEY || '')) return send(res, 200, base)
   const key = process.env.GEMINI_API_KEY
   if (!key) return send(res, 200, { ...base, probe: { ok: false, error: 'GEMINI_API_KEY חסר' } })
+  const MODEL = (q(req, 'model') || DEFAULT_MODEL).replace(/[^a-z0-9.-]/gi, '').slice(0, 60)
   const t0 = Date.now()
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
