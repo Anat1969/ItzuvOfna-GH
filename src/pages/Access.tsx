@@ -1,4 +1,4 @@
-import { ACTIONS, MODELS, NEVER, PERMS, ROLE_HE, SALONS, can, type Role, type User } from '../data'
+import { ACTIONS, allModels, NEVER, PERMS, ROLE_HE, SALONS, can, type Role, type User } from '../data'
 import { ENGINES } from '../engine'
 import { fmtTime, type AuditEntry } from '../App'
 
@@ -33,14 +33,14 @@ export default function Access({ user, audit }: { user: User; audit: AuditEntry[
         <table className="matrix">
           <thead><tr><th>דגם</th>{SALONS.map(s => <th key={s.id} className={user.salon === s.id ? 'me' : ''}>{s.name}<br /><span className="muted">{s.place}</span></th>)}</tr></thead>
           <tbody>
-            {MODELS.map(m => (
+            {allModels().map(m => (
               <tr key={m.id}><td><span className="mono">{m.id}</span> {m.name}</td>{SALONS.map(s => <td key={s.id} className={`${user.salon === s.id ? 'me ' : ''}${m.salons.includes(s.id) ? 'yes' : 'no'}`}>{m.salons.includes(s.id) ? 'מורשה' : 'לא נטען'}</td>)}</tr>
             ))}
           </tbody>
         </table>
         <h3>מה לא קיים במערכת בכלל</h3>
         <ul className="never">{NEVER.map(n => <li key={n}>{n}</li>)}</ul>
-        <p className="note">מה שלא נשמר לא יכול לדלוף. הפרדה מוחלטת בין SHIRAN STORE לבין עסק המכירות הבינלאומי.</p>
+        <p className="note">מה שלא נשמר לא יכול לדלוף. הפרדה מוחלטת בין החנות לבין עסק המכירות הבינלאומי.</p>
       </section>
 
       <section className="a-audit">

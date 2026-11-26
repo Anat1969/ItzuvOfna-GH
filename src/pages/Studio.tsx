@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { t, type Lang, type Key } from '../i18n'
 import { can, modelsFor, salonOf, findModel, allModels, collectionsOf, RET_DAYS, ROLE_HE, type Model, type Retention, type User } from '../data'
 import { api, newGalleryId, galleryUrl, setKey } from '../api'
-import { composeLook, composePair, shrink, stampImage } from '../imaging'
+import { composeLook, composePair, shrink } from '../imaging'
+import { dressBride } from '../tryon'
+import { STUDIO, applyBackdrop, type Backdrop } from '../bg'
+import { backgrounds } from '../data'
 import { activeEngine } from '../engine'
 import { Stage, Dress } from '../Stage'
 import { DEFAULT_T, fmtTime, type AuditEntry, type Consent, type Fav, type Page, type Session } from '../App'
@@ -30,6 +33,17 @@ export default function Studio(p: Props) {
   const [followPick, setFollowPick] = useState<Fav | null>(null)
   const shown: Fav | null = step === 5 ? (s?.request?.fav ?? followPick) : null
   const model = findModel(shown?.modelId ?? s?.modelId) ?? null
+  const backs: Backdrop[] = [...STUDIO, ...backgrounds().map(b => ({ id: b.id, label: b.name, kind: 'image' as const, url: b.url }))]
+  const bd = backs.find(b => b.id === (s?.backdrop || 'orig')) ?? STUDIO[0]
+  const dressed = model ? s?.tryons?.[model.id] : undefined
+  const shot = model && dressed ? (bd.kind === 'original' ? dressed : s?.shots?.[`${model.id}|${bd.id}`]) : undefined
+  const [bgBusy, setBgBusy] = useState(false)
+  useEffect(() => {
+    if (!model || !dressed || bd.kind === 'original' || s?.shots?.[`${model.id}|${bd.id}`]) return
+    let live = true; setBgBusy(true)
+    applyBackdrop(dressed, bd).catch(() => dressed).then(img => { if (live) setSession(x => x && { ...x, shots: { ...x.shots, [`${model.id}|${bd.id}`]: img } }) }).finally(() => live && setBgBusy(false))
+    return () => { live = false }
+  }, [model?.id, dressed, bd.id])
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setClient(false) }
@@ -81,9 +95,10 @@ export default function Studio(p: Props) {
           </div>
         ) : (
           <div className={`stage-box${!s?.photoKind ? ' dim' : ''}`}>
-            {step >= 3 && model && s?.tryons?.[model.id] ? (
-              <div className="stage dressed">
-                <img src={s.tryons[model.id]} alt={model.name} className="photo" />
+            {step >= 3 && model && dressed ? (
+              <div className={`stage dressed${bgBusy ? ' busy' : ''}`}>
+                <img src={shot || dressed} alt={model.name} className="photo" />
+                {bgBusy && <span className="bg-busy">מחליפה רקע...</span>}
               </div>
             ) : <Stage photo={s?.photo ?? null} model={step >= 3 ? model : null} fill={fillOf(shown?.modelId ?? s?.modelId ?? null, shown?.variation ?? s?.variation ?? null)} transform={shown?.transform ?? s?.transform ?? DEFAULT_T} watermark={L('illustration')} uid="main" />}
             {!s?.photoKind && <div className="stage-veil"><b>{L(s?.consent ? 'veilWaiting' : 'veilNoConsent')}</b><span>{L('veilSub')}</span></div>}
@@ -95,12 +110,14 @@ export default function Studio(p: Props) {
       <aside className="panel">
         {step === 0 && <OpenStep {...p} />}
         {s && step === 1 && <ConsentStep lang={lang} jurisdiction={salonOf(user).jurisdiction} done={s.consent} onAgree={c => {
-          upd({ consent: c, step: 2 })
+          upd({ consent: c, step: s.photo ? 3 : 2 })
           log(`הסכמה נחתמה: צילום, הסבר עיבוד, שמירה "${L(('r_' + c.retention) as Key)}". שיווק ${c.o1 ? 'כן' : 'לא'}, אימון מודלים ${c.o2 ? 'כן' : 'לא'}, שליחה ${c.o3 ? 'כן' : 'לא'}, הלבשה ב-AI חיצוני ${c.ai ? 'כן' : 'לא'}`, 'privacy')
         }} />}
         {s && step === 2 && <CaptureStep lang={lang} onPhoto={(photo, kind) => {
           upd({ photo, photoKind: kind, step: 3 })
-          log(kind === 'demo' ? 'נבחרה דמות הדגמה, ללא צילום' : `תצלום נקלט (${kind === 'camera' ? 'מצלמה' : 'קובץ'}) ונשמר בזיכרון המכשיר בלבד`, kind === 'demo' ? 'info' : 'privacy')
+          const days = RET_DAYS[s.consent?.retention ?? 'session']
+          if (photo && days) shrink(photo, 1600, 0.9).then(img => api.saveClient(s.gallery, img, s.client, days)).then(() => log('תצלום המקור נשמר בארכיון הלקוחות', 'privacy')).catch(() => log('שמירת המקור בארכיון נכשלה', 'deny'))
+          log(`תצלום נקלט (${kind === 'camera' ? 'מצלמה' : 'קובץ'})`, 'privacy')
         }} />}
         {s && step === 3 && <ModelStep lang={lang} user={user} s={s} onPick={(patch) => upd(patch)} onNext={() => { goStep(4); log(`נבחר דגם ${s.modelId}, מידה ${s.size}, ${s.variation}`) }} />}
         {s && step === 4 && model && (
@@ -116,8 +133,16 @@ export default function Studio(p: Props) {
               ))}
               <button className="ghost" onClick={() => upd({ transform: DEFAULT_T })}>{L('reset')}</button>
             </fieldset>}
+            <div><span className="lbl">רקע</span>
+              <div className="backs">{backs.map(b => (
+                <button key={b.id} className={bd.id === b.id ? 'on' : ''} onClick={() => upd({ backdrop: b.id })} title={b.label}>
+                  <i style={b.kind === 'studio' ? { background: `radial-gradient(circle at 50% 35%, ${b.tones![0]}, ${b.tones![1]} 60%, ${b.tones![2]})` } : b.kind === 'image' ? { backgroundImage: `url(${b.url})` } : s.photo ? { backgroundImage: `url(${dressed || s.photo})` } : {}} />{b.label}
+                </button>
+              ))}</div>
+              {!dressed && <p className="note">הרקע מוחלף על התמונה של הלקוחה בשמלה, אחרי "הלבשה".</p>}
+            </div>
             <div className="row">
-              <SaveLook lang={lang} user={user} s={s} model={model} setSession={setSession} log={log} onSaved={f => { setSession(x => x && { ...x, favorites: [...x.favorites, f] }); log(`נשמרה תמונה לגלריה: ${f.modelId} מידה ${f.size}${f.engine === 'ai' ? ' (AI)' : ''}`, 'privacy') }} />
+              <SaveLook lang={lang} user={user} s={s} model={model} shot={shot} bd={bd} setSession={setSession} log={log} onSaved={f => { setSession(x => x && { ...x, favorites: [...x.favorites, f] }); log(`נשמרה תמונה לגלריה: ${f.modelId} מידה ${f.size}${f.engine === 'ai' ? ' (AI)' : ''}`, 'privacy') }} />
               <button onClick={() => { setClient(true); log('מעבר לתצוגת לקוחה') }}>{L('clientView')}</button>
             </div>
             <Favs lang={lang} s={s} cmp={cmp} setCmp={setCmp} onDelete={id => { const f = s.favorites.find(x => x.id === id); if (f?.lookUrl) api.deleteLook(s.gallery, f.lookUrl).catch(() => null); upd({ favorites: s.favorites.filter(f => f.id !== id) }); setCmp(c => c.filter(x => x !== id)); log('מועדף נמחק לבקשת הכלה', 'privacy') }} />
@@ -134,7 +159,7 @@ export default function Studio(p: Props) {
         <div className="client" role="dialog" aria-label={L('clientView')}>
           <div className="client-stage"><Stage photo={s.photo} model={model} fill={fillOf(s.modelId, s.variation)} transform={s.transform} watermark={L('illustration')} uid="client" /></div>
           <div className="client-side">
-            <span className="lbl">SHIRAN · {model.collection}</span>
+            <span className="lbl">קולקציה · {model.collection}</span>
             <h1>{model.name}</h1>
             <p className="mono">{model.id} · {L('size')} {s.size}</p>
             <p>{model.variations.find(v => v.id === s.variation)?.label[lang]}</p>
@@ -149,6 +174,7 @@ export default function Studio(p: Props) {
 
 function OpenStep({ lang, user, setSession, log }: Props) {
   const L = (k: Key) => t(lang, k)
+  const [name, setName] = useState('')
   const salon = salonOf(user)
   const ok = can(user, 'session')
   return (
@@ -161,9 +187,10 @@ function OpenStep({ lang, user, setSession, log }: Props) {
         <dt>{L('kCatalog')}</dt><dd><b>{modelsFor(user).length}</b> {L('of')} {allModels().length} {L('approvedFor')}</dd>
         <dt>{L('kLaw')}</dt><dd>{L(salon.jurisdiction === 'EU' ? 'lawEU' : 'lawIL')}</dd>
       </dl>
+      <label className="field"><span className="lbl">שם הלקוחה (לא חובה)</span><input value={name} onChange={e => setName(e.target.value)} placeholder="לארכיון הלקוחות" autoComplete="off" /></label>
       <button className="primary big" disabled={!ok} onClick={() => {
         const id = `SES-${Date.now().toString(36).slice(-5).toUpperCase()}`
-        setSession({ id, gallery: newGalleryId(), openedAt: Date.now(), salon: user.salon, user: user.id, step: 1, consent: null, photo: null, photoKind: null, modelId: null, variation: null, size: null, transform: DEFAULT_T, favorites: [], request: null, tryons: {} })
+        setSession({ id, gallery: newGalleryId(), openedAt: Date.now(), salon: user.salon, user: user.id, step: 1, consent: null, photo: null, photoKind: null, modelId: null, variation: null, size: null, transform: DEFAULT_T, favorites: [], request: null, tryons: {}, client: name.trim(), picked: [], backdrop: 'paper', shots: {} })
         log(`נפתח סשן ${id} ב${salon.name}`)
       }}>{L('openBtn')}</button>
       {!ok && <p className="deny">{L('noPerm')}</p>}
@@ -240,7 +267,6 @@ function CaptureStep({ lang, onPhoto }: { lang: Lang; onPhoto: (p: string | null
             im.src = src
           }; r.readAsDataURL(f); e.target.value = ''
         }} /></label>
-        <button onClick={() => onPhoto(null, 'demo')}>{L('demoFigure')}</button>
       </div>
       {err && <p className="deny">{L('noCamera')}</p>}
       {wide && <p className="deny">{L('portraitOnly')}</p>}
@@ -264,11 +290,19 @@ function ModelStep({ lang, user, s, onPick, onNext }: { lang: Lang; user: User; 
         <button className={col === '' ? 'on all' : 'all'} onClick={() => setCol('')}>{L('allCols')} · {all.length}</button>
         {cols.map(c => <button key={c} className={col === c ? 'on' : ''} onClick={() => setCol(c)}>{c} · {all.filter(x => x.collection === c).length}</button>)}
       </div></div>}
+      <div className="row between">
+        <span className="lbl">לחיצה על דגם בוחרת אותו · הריבוע מסמן למדידה · {s.picked.length} סומנו</span>
+        <div className="row">
+          <button className="ghost" onClick={() => onPick({ picked: [...new Set([...s.picked, ...list.map(x => x.id)])] })}>סימון הכול</button>
+          {s.picked.length > 0 && <button className="ghost" onClick={() => onPick({ picked: [] })}>ניקוי</button>}
+        </div>
+      </div>
       <div className="catalog">
         {list.map(x => (
-          <button key={x.id} className={`tile${s.modelId === x.id ? ' on' : ''}`} onClick={() => onPick({ modelId: x.id, variation: x.variations[0].id, size: x.sizes[Math.floor(x.sizes.length / 2)] })}>
+          <button key={x.id} className={`tile${s.modelId === x.id ? ' on' : ''}${s.picked.includes(x.id) ? ' picked' : ''}`} onClick={() => onPick({ modelId: x.id, variation: x.variations[0].id, size: s.size ?? x.sizes[Math.floor(x.sizes.length / 2)] })}>
+            <span className="pick" role="checkbox" aria-checked={s.picked.includes(x.id)} onClick={e => { e.stopPropagation(); onPick({ picked: s.picked.includes(x.id) ? s.picked.filter(y => y !== x.id) : [...s.picked, x.id] }) }}>{s.picked.includes(x.id) ? '✓' : ''}</span>
             <Dress model={x} fill={x.variations[0].fill} uid={`t${x.id}`} />
-            <b>{x.name}</b><span className="mono">{x.id}</span>
+            <b>{x.name}</b>
             {can(user, 'seePrice') && x.retailPrice > 0 && <span className="price mono">{ils(x.retailPrice)}</span>}
           </button>
         ))}
@@ -276,7 +310,6 @@ function ModelStep({ lang, user, s, onPick, onNext }: { lang: Lang; user: User; 
       {m && <>
         <div><span className="lbl">{L('size')}</span><div className="seg">{m.sizes.map(z => <button key={z} className={s.size === z ? 'on' : ''} onClick={() => onPick({ size: z })}>{z}</button>)}</div></div>
         {m.variations.length > 1 && <div><span className="lbl">{L('variation')}</span><div className="seg">{m.variations.map(v => <button key={v.id} className={s.variation === v.id ? 'on' : ''} onClick={() => onPick({ variation: v.id })}><i className="sw" style={{ background: v.fill }} />{v.label[lang]}</button>)}</div></div>}
-        <p className="note">זכויות: {m.rights.source} · {m.rights.usage} · תועד {m.rights.documented}</p>
       </>}
       <div className="row end"><button className="primary" disabled={!m} onClick={onNext}>{L('next')}</button></div>
     </div>
@@ -360,10 +393,11 @@ function FollowStep({ lang, user, s, setSession, log, audit, onPick }: Props & {
 
 
 // שמירת התמונה: הרכבה מקומית תמיד זמינה, ומנוע AI כשהוא מחובר בשרת
-function SaveLook({ lang, user, s, model, onSaved, setSession, log }: { lang: Lang; user: User; s: Session; model: Model; onSaved: (f: Fav) => void; setSession: Props['setSession']; log: Props['log'] }) {
+function SaveLook({ lang, user, s, model, shot, bd, onSaved, setSession, log }: { lang: Lang; user: User; s: Session; model: Model; shot?: string; bd: Backdrop; onSaved: (f: Fav) => void; setSession: Props['setSession']; log: Props['log'] }) {
   const L = (k: Key) => t(lang, k)
   const [busy, setBusy] = useState<'' | 'save' | 'try' | 'all'>('')
   const [err, setErr] = useState('')
+  const [note, setNote] = useState('')
   const [progress, setProgress] = useState<{ done: number; total: number; name: string } | null>(null)
   const stop = useRef(false)
   const [keyOk, setKeyOk] = useState<boolean | null>(null)
@@ -372,53 +406,56 @@ function SaveLook({ lang, user, s, model, onSaved, setSession, log }: { lang: La
   useEffect(() => { check() }, [])
   const days = RET_DAYS[s.consent?.retention ?? 'session']
   const canTry = !!s.consent?.ai && !!s.photo && !!model.image
-  const capOf = (m: Model) => `${m.name} · ${m.id} · ${L('size')} ${s.size} · ${new Date().toLocaleDateString('he-IL')}`
-  const tryCache = useRef<Record<string, string>>({})
+  const cache = useRef<Record<string, string>>({})
 
   const fav = (m: Model, url: string, engine: 'local' | 'ai'): Fav => ({ id: Math.random().toString(36).slice(2, 7), modelId: m.id, variation: m.variations[0].id, size: s.size ?? 40, transform: s.transform, lookUrl: url, engine })
   const saveImage = async (m: Model, image: string, engine: 'local' | 'ai') => { const r = await api.saveLook(s.gallery, image, m.id, days, engine); onSaved(fav(m, r.url, engine)) }
 
-  // הלבשה של דגם אחד על התצלום של הכלה, דרך השירות החינמי
+  // הלבשה של דגם על התצלום, ואז הרקע שנבחר. הכול נשמר בזיכרון הסשן.
   const dress = async (m: Model) => {
-    const cached = s.tryons?.[m.id] || tryCache.current[m.id]
-    if (cached) return cached
-    const person = await shrink(s.photo!, 1024, 0.88)
-    const r = await api.tryon(person, m.image!)
-    const stamped = await stampImage(r.image, L('illustration'), capOf(m))
-    tryCache.current[m.id] = stamped
-    setSession(x => x && { ...x, tryons: { ...(x.tryons || {}), [m.id]: stamped } })
-    log(`הלבשה על הכלה: ${m.id} (${Math.round(r.ms / 1000)} שניות)`, 'privacy')
-    return stamped
+    let raw = s.tryons?.[m.id] || cache.current[m.id]
+    if (!raw) {
+      const t0 = Date.now()
+      raw = await dressBride(await shrink(s.photo!, 1024, 0.9), m.image!, n => setNote(n > 1 ? `ניסיון ${n} מתוך 3...` : ''))
+      cache.current[m.id] = raw
+      setSession(x => x && { ...x, tryons: { ...x.tryons, [m.id]: raw! } })
+      log(`הלבשה: ${m.name} (${Math.round((Date.now() - t0) / 1000)} שניות)`, 'privacy')
+    }
+    if (bd.kind === 'original') return raw
+    const key = `${m.id}|${bd.id}`
+    const done = s.shots?.[key] || cache.current[key] || await applyBackdrop(raw, bd).catch(() => raw!)
+    cache.current[key] = done
+    setSession(x => x && { ...x, shots: { ...x.shots, [key]: done } })
+    return done
   }
 
   const save = async () => {
     setBusy('save'); setErr('')
     try {
-      const done = s.tryons?.[model.id]
-      if (done) await saveImage(model, done, 'ai')
-      else await saveImage(model, model.cutout === false ? await composePair({ photo: s.photo, model, watermark: L('illustration'), caption: capOf(model) }) : await composeLook({ photo: s.photo, model, fill: fillOf(s.modelId, s.variation), t: s.transform, watermark: L('illustration'), caption: capOf(model) }), 'local')
+      const img = shot || s.tryons?.[model.id]
+      if (img) await saveImage(model, img, 'ai')
+      else await saveImage(model, model.cutout === false ? await composePair({ photo: s.photo, model, watermark: '', caption: '' }) : await composeLook({ photo: s.photo, model, fill: fillOf(s.modelId, s.variation), t: s.transform, watermark: '', caption: '' }), 'local')
     } catch (e: any) { setErr(e.message) } finally { setBusy('') }
   }
   const tryOne = async () => {
     setBusy('try'); setErr('')
-    try { await dress(model) } catch (e: any) { setErr(e.message) } finally { setBusy('') }
+    try { await dress(model) } catch (e: any) { setErr(e.message) } finally { setBusy(''); setNote('') }
   }
-  // מדידת כל הקולקציה: כל דגם בתורו, וכל תוצאה נשמרת לגלריה
+  // מדידה אוטומטית: הדגמים שסומנו, או כל הקולקציה. כל תוצאה על הרקע שנבחר, ונשמרת לגלריה.
+  const pool = modelsFor(user).filter(m => m.image)
+  const targets = s.picked.length ? pool.filter(m => s.picked.includes(m.id)) : pool.filter(m => m.collection === model.collection)
   const tryAll = async () => {
-    const list = modelsFor(user).filter(m => m.collection === model.collection && m.image)
     stop.current = false; setBusy('all'); setErr('')
-    let n = 0
-    for (const m of list) {
+    let n = 0, ok = 0
+    for (const m of targets) {
       if (stop.current) break
-      setProgress({ done: n, total: list.length, name: m.name })
-      try {
-        const img = await dress(m)
-        if (!s.favorites.some(f => f.modelId === m.id && f.engine === 'ai')) await saveImage(m, img, 'ai')
-      } catch (e: any) { setErr(`${m.name}: ${e.message}`); if (/מכסה|quota/.test(e.message)) break }
+      setProgress({ done: n, total: targets.length, name: m.name })
+      try { const img = await dress(m); await saveImage(m, img, 'ai'); ok++ }
+      catch (e: any) { setErr(`${m.name}: ${e.message}`); if (/עמוס|מכסה/.test(e.message)) break }
       n++
     }
-    setProgress({ done: n, total: list.length, name: '' }); setBusy('')
-    log(`מדידת קולקציה ${model.collection}: ${n} מתוך ${list.length}`, 'privacy')
+    setProgress({ done: ok, total: targets.length, name: '' }); setBusy(''); setNote('')
+    log(`מדידה אוטומטית: ${ok} מתוך ${targets.length}, רקע ${bd.label}`, 'privacy')
   }
 
   if (!can(user, 'favorites')) return null
@@ -427,24 +464,24 @@ function SaveLook({ lang, user, s, model, onSaved, setSession, log }: { lang: La
   if (keyOk === false) return (
     <div className="keybox inline">
       <span className="lbl">מפתח סטודיו</span>
-      <p className="note">כדי לשמור תמונות לגלריה, פעם אחת בכל טאבלט. נשמר רק במכשיר הזה.</p>
+      <p className="note">פעם אחת בכל טאבלט. נשמר רק במכשיר הזה.</p>
       <div className="row">
-        <input type="password" value={k} onChange={e => setK(e.target.value)} placeholder="shiran-..." autoComplete="current-password" />
+        <input type="password" value={k} onChange={e => setK(e.target.value)} placeholder="..." autoComplete="current-password" />
         <button className="primary" onClick={() => { setKey(k.trim()); check() }}>אישור</button>
       </div>
     </div>
   )
-  const collectionSize = modelsFor(user).filter(m => m.collection === model.collection && m.image).length
   return (
     <div className="stack save-look">
       {model.image && (
         <div className="try-box">
           <div className="row">
             <button className="primary big" disabled={!!busy || !canTry || !!s.tryons?.[model.id]} onClick={tryOne}>{busy === 'try' ? L('tryBusy') : s.tryons?.[model.id] ? L('tryBtn') + ' · מוכן' : L('tryBtn')}</button>
-            {collectionSize > 1 && (busy === 'all'
+            {busy === 'all'
               ? <button className="danger" onClick={() => { stop.current = true }}>{L('tryStop')}</button>
-              : <button disabled={!!busy || !canTry} onClick={tryAll}>{L('tryAll')} · {collectionSize}</button>)}
+              : <button disabled={!!busy || !canTry || !targets.length} onClick={tryAll}>{s.picked.length ? `מדידת הנבחרים · ${targets.length}` : `${L('tryAll')} · ${targets.length}`}</button>}
           </div>
+          {note && <p className="note">{note}</p>}
           {progress && <div className="try-progress"><i style={{ width: `${(progress.done / Math.max(1, progress.total)) * 100}%` }} /><span>{progress.done}/{progress.total} {busy === 'all' ? `· ${progress.name}` : L('tryDone')}</span></div>}
           {!s.consent?.ai && <p className="note">{L('tryNoConsent')}</p>}
           {s.consent?.ai && !s.photo && <p className="note">{L('tryNoPhoto')}</p>}

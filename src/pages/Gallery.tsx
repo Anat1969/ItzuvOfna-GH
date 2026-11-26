@@ -12,6 +12,13 @@ export default function Gallery({ lang, g }: { lang: Lang; g: string }) {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState('')
   const [zoom, setZoom] = useState<Look | null>(null)
+  const [biz, setBiz] = useState<{ business?: string; whatsapp?: string; payUrl?: string }>({})
+  useEffect(() => { api.settings().then(setBiz).catch(() => null) }, [])
+  const order = () => {
+    const items = chosen.map((l, i) => `${i + 1}. ${name(l)}`).join('\n')
+    const text = `שלום${biz.business ? ' ' + biz.business : ''}, אני רוצה להזמין מהקולקציה:\n${items}\n\nהגלריה שלי: ${galleryUrl(g)}`
+    window.open(`https://wa.me/${biz.whatsapp || ''}?text=${encodeURIComponent(text)}`, '_blank')
+  }
 
   const load = () => api.looks(g).then(l => { setLooks(l); setSel(s => s.filter(u => l.some(x => x.url === u))) }).catch(e => { setErr(e.message); setLooks([]) })
   useEffect(() => { load() }, [g])
@@ -22,7 +29,7 @@ export default function Gallery({ lang, g }: { lang: Lang; g: string }) {
 
   const blobs = async () => Promise.all(chosen.map(async (l, i) => {
     const b = await (await fetch(l.url)).blob()
-    return new File([b], `shiran-${String(i + 1).padStart(2, '0')}-${name(l).replace(/\s+/g, '-')}.jpg`, { type: b.type || 'image/jpeg' })
+    return new File([b], `collection-${String(i + 1).padStart(2, '0')}-${name(l).replace(/\s+/g, '-')}.jpg`, { type: b.type || 'image/jpeg' })
   }))
 
   const download = async () => {
@@ -39,8 +46,8 @@ export default function Gallery({ lang, g }: { lang: Lang; g: string }) {
     setBusy('share')
     try {
       const files = await blobs()
-      if (navigator.canShare?.({ files })) await navigator.share({ files, title: 'SHIRAN Bridal Studio' })
-      else if (navigator.share) await navigator.share({ title: 'SHIRAN Bridal Studio', url: galleryUrl(g) })
+      if (navigator.canShare?.({ files })) await navigator.share({ files, title: 'קולקציה' })
+      else if (navigator.share) await navigator.share({ title: 'קולקציה', url: galleryUrl(g) })
       else window.open(`https://wa.me/?text=${encodeURIComponent(galleryUrl(g))}`, '_blank')
     } catch { /* בוטל */ } finally { setBusy('') }
   }
@@ -57,7 +64,7 @@ export default function Gallery({ lang, g }: { lang: Lang; g: string }) {
     <div className="gallery">
       <header className="g-head no-print">
         <div>
-          <span className="kicker">SHIRAN Bridal Studio</span>
+          <span className="kicker">קולקציה · סטודיו אופנה</span>
           <h1>{L('gTitle')}</h1>
           <p className="lead">{looks.length ? <>{L('gLead')} <b>{looks.length}</b> · {L('gUntil')} <b>{day(exp)}</b></> : L('gEmpty')}</p>
         </div>
@@ -65,9 +72,12 @@ export default function Gallery({ lang, g }: { lang: Lang; g: string }) {
           <div className="g-actions">
             <span className="lbl">{sel.length ? `${sel.length} ${L('gSelected')}` : L('gAll')}</span>
             <div className="row">
-              <button className="primary" onClick={() => window.print()}>{L('gPrint')}</button>
+              {biz.whatsapp && <button className="primary" onClick={order}>הזמנה{sel.length ? ` · ${sel.length}` : ''}</button>}
+              {biz.payUrl && <a className="btn" href={biz.payUrl} target="_blank" rel="noreferrer">תשלום</a>}
+              <button className={biz.whatsapp ? '' : 'primary'} onClick={() => window.print()}>{L('gPrint')}</button>
               <button onClick={download} disabled={!!busy}>{busy === 'download' ? '...' : L('gDownload')}</button>
               <button onClick={share} disabled={!!busy}>{busy === 'share' ? '...' : L('gSend')}</button>
+              {sel.length < looks.length && <button className="ghost" onClick={() => setSel(looks.map(l => l.url))}>סימון הכול</button>}
               {sel.length > 0 && <button className="ghost" onClick={() => setSel([])}>{L('gClear')}</button>}
             </div>
           </div>

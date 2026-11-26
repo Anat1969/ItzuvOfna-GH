@@ -30,8 +30,7 @@ export default async function handler(req: Req, res: Res) {
     const txt = await r2.text()
     if (/event: error/.test(txt)) {
       console.error('tryon error event', txt.slice(0, 600))
-      const quota = /quota|GPU/i.test(txt)
-      return send(res, quota ? 429 : 502, { error: quota ? 'המכסה החינמית היומית של שירות ההלבשה נגמרה. היא מתחדשת מחר.' : 'ההלבשה נכשלה בתמונה הזו. נסי תצלום אחר: עמידה מלאה, לאורך, רקע פשוט.' })
+      return send(res, 503, { error: 'busy', detail: txt.slice(0, 200) })
     }
     const m = /event: complete\s*data: (\[.*\])/s.exec(txt)
     const out = m ? JSON.parse(m[1])?.[0]?.url : null

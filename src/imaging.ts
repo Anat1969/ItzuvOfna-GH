@@ -153,7 +153,10 @@ export async function stampImage(src: string, watermark: string, caption: string
   return cv.toDataURL('image/jpeg', 0.9)
 }
 
-function stamp(cx: CanvasRenderingContext2D, W: number, H: number, wm: string, caption: string) {
+function stamp(_cx: CanvasRenderingContext2D, _W: number, _H: number, _wm: string, _caption: string) {
+  return // ענת, 26.11.2026: בלי חותמת מים. ההבהרה מופיעה במסך, לא על התמונה.
+}
+export function stampOld(cx: CanvasRenderingContext2D, W: number, H: number, wm: string, caption: string) {
   const u = W / 1200
   cx.save()
   cx.fillStyle = 'rgba(17,17,17,.07)'; cx.font = `700 ${46 * u}px "IBM Plex Sans Hebrew", sans-serif`; cx.textAlign = 'center'
@@ -165,5 +168,5 @@ function stamp(cx: CanvasRenderingContext2D, W: number, H: number, wm: string, c
   cx.fillStyle = 'rgba(255,255,255,.88)'; cx.fillRect(0, H - 60 * u, W, 60 * u)
   cx.fillStyle = '#4a4846'; cx.font = `400 ${20 * u}px "IBM Plex Sans Hebrew", sans-serif`; cx.textAlign = 'right'
   cx.fillText(caption, W - 24 * u, H - 24 * u)
-  cx.textAlign = 'left'; cx.direction = 'ltr'; cx.fillText('SHIRAN Bridal Studio', 24 * u, H - 24 * u)
+  cx.textAlign = 'left'; cx.direction = 'ltr'; cx.fillText('Collection', 24 * u, H - 24 * u)
 }

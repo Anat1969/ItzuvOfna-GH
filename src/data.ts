@@ -1,4 +1,4 @@
-// נתוני הדגמה בלבד. אין כאן לקוחות אמיתיים, מחירי רכישה או נתונים של SHIRAN STORE.
+// מבנה הקטלוג וההרשאות. מחירי רכישה ונתוני חנות לא קיימים כאן בכלל.
 // המבנה משמר את "התשתית שתישמר כבר עכשיו" מהאפיון: מזהה דגם קבוע, זכויות שימוש מתועדות,
 // שיוך סשן לסלון וליועצת, והרשאות קשיחות לפי תפקיד.
 
@@ -13,6 +13,7 @@ export interface Model {
   image?: string // דגם שהועלה: תמונה, בדרך כלל PNG עם רקע שקוף
   aspect?: number // רוחב חלקי גובה של התמונה
   uploaded?: boolean
+  kind?: 'model' | 'background'
   cutout?: boolean // false: צולם על דוגמנית או ברקע לא אחיד, מוצג זה לצד זה
   collection: string
   sizes: number[]
@@ -86,7 +87,15 @@ export const can = (u: User, a: Action) => PERMS[u.role].includes(a)
 // הקטלוג המלא: דגמים שהועלו למאגר, ואחריהם דגמי ההדגמה המאוירים
 let REMOTE: Model[] = []
 export const VAR_PHOTO: Variation = { id: 'photo', label: { he: 'כמו בתמונה', en: 'As photographed', ar: 'كما في الصورة' }, fill: '#FFFFFF' }
-export function setRemote(list: any[]) {
+// שם קריא במקום שם קובץ של מצלמה או WhatsApp
+const ugly = /whatsapp|^img[ _-]?\d|^dsc|^image\s|^photo|^\d{6,}/i
+let BACKS: { id: string; name: string; url: string }[] = []
+export const backgrounds = () => BACKS
+export function setRemote(all: any[]) {
+  BACKS = all.filter(m => m.kind === 'background').map(m => ({ id: m.id, name: m.name, url: m.image }))
+  const list = all.filter(m => m.kind !== 'background').sort((a, b) => a.createdAt - b.createdAt)
+  const count: Record<string, number> = {}
+  for (const m of list) { count[m.collection] = (count[m.collection] || 0) + 1; m._n = count[m.collection]; if (ugly.test(m.name || '')) m.name = `דגם ${String(m._n).padStart(2, '0')}` }
   REMOTE = list.map(m => ({
     id: m.id, name: m.name, collection: m.collection, sizes: m.sizes, variations: [VAR_PHOTO], sleeves: false,
     retailPrice: m.retailPrice || 0, image: m.image, aspect: m.aspect, uploaded: true, cutout: m.cutout !== false,
@@ -94,11 +103,11 @@ export function setRemote(list: any[]) {
     salons: m.salons?.length ? m.salons : SALONS.map(x => x.id),
   }))
 }
-export const allModels = () => [...REMOTE, ...MODELS]
+export const allModels = () => REMOTE // דגמי ההדגמה המאוירים הוסרו: רק הקולקציה האמיתית
 export const findModel = (id: string | null | undefined) => allModels().find(m => m.id === id)
 export const modelsFor = (u: User) => allModels().filter(m => m.salons.includes(u.salon))
 export const collectionsOf = (list: Model[]) => [...new Set(list.map(m => m.collection))]
 export const salonOf = (u: User) => SALONS.find(s => s.id === u.salon)!
 
 // מה שאין במערכת בכלל, ולכן לא יכול לדלוף
-export const NEVER = ['מחירי רכישה', 'לקוחות של סלונים אחרים', 'ספרי SHIRAN STORE', 'נתוני החברה הבינלאומית']
+export const NEVER = ['מחירי רכישה', 'לקוחות של סלונים אחרים', 'ספרי החנות', 'נתוני החברה הבינלאומית']

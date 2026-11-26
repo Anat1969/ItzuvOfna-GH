@@ -23,8 +23,9 @@ function clean(m: any) {
     retailPrice: Number(m.retailPrice) || 0,
     aspect: Math.min(3, Math.max(0.2, Number(m.aspect) || 0.6)),
     cutout: !!m.cutout,
-    rights: String(m.rights || 'צילום דגם של שירן, לשימוש בסלון').slice(0, 120),
+    rights: String(m.rights || 'צילום הקולקציה, לשימוש בעסק').slice(0, 120),
     image: String(m.image || ''),
+    kind: m.kind === 'background' ? 'background' : 'model',
     createdAt: Number(m.createdAt) || Date.now(),
   }
 }

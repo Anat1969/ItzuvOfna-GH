@@ -3,7 +3,7 @@ export const DIR: Record<Lang, 'rtl' | 'ltr'> = { he: 'rtl', en: 'ltr', ar: 'rtl
 export const LANG_LABEL: Record<Lang, string> = { he: 'עב', en: 'EN', ar: 'عر' }
 
 const T = {
-  appName: { he: 'SHIRAN Bridal Studio', en: 'SHIRAN Bridal Studio', ar: 'SHIRAN Bridal Studio' },
+  appName: { he: 'קולקציה', en: 'Collection', ar: 'كولكشن' },
   navCover: { he: 'כריכה', en: 'Cover', ar: 'الغلاف' },
   navStudio: { he: 'סטודיו', en: 'Studio', ar: 'الاستوديو' },
   navAccess: { he: 'הרשאות', en: 'Access', ar: 'الصلاحيات' },
@@ -27,7 +27,7 @@ const T = {
   consentLead: { he: 'הכלה קוראת ומסמנת בעצמה. בלי סימון אין מצלמה.', en: 'The bride reads and ticks each item herself. No tick, no camera.', ar: 'تقرأ العروس وتؤشر بنفسها. بدون تأشير لا كاميرا.' },
   c1: { he: 'אני מסכימה שיצולם תצלום שלי לצורך הדמיית שמלה בסלון זה בלבד.', en: 'I agree to be photographed for a dress preview in this salon only.', ar: 'أوافق على تصويري لمعاينة فستان في هذا الصالون فقط.' },
   c2: { he: 'הוסבר לי שההדמיה נוצרת בתהליך ממוחשב, ואינה משקפת מידה, גזרה, שקיפות או תנועת בד.', en: 'I understand the preview is computer-generated and does not reflect size, cut, sheerness or fabric movement.', ar: 'أفهم أن المعاينة مولدة حاسوبيًا ولا تعكس المقاس أو القصة أو الشفافية أو حركة القماش.' },
-  c3: { he: 'התצלום המקורי לא נשמר. התמונות שאבחר יישמרו בגלריה אישית בקישור פרטי עד תום משך השמירה, ואז יימחקו. אפשר למחוק בכל רגע.', en: 'The original photo is not kept. Looks I choose are kept in a private gallery link until the retention period ends, then deleted. I can delete them at any time.', ar: 'لا تُحفظ الصورة الأصلية. الصور التي أختارها تُحفظ في معرض خاص برابط شخصي حتى انتهاء المدة ثم تُحذف. يمكنني حذفها في أي وقت.' },
+  c3: { he: 'התצלום שלי והתמונות שאבחר יישמרו אצל העסק, בארכיון הלקוחות ובגלריה אישית, עד תום משך השמירה, ואז יימחקו. אפשר למחוק בכל רגע.', en: 'My photo and the looks I choose are kept by the business, in the client archive and a private gallery, until the retention period ends, then deleted. I can delete them at any time.', ar: 'تُحفظ صورتي والصور التي أختارها لدى المتجر في أرشيف العملاء ومعرض خاص حتى انتهاء المدة ثم تُحذف. يمكنني حذفها في أي وقت.' },
   optional: { he: 'אישורים נפרדים, כבויים כברירת מחדל', en: 'Separate permissions, off by default', ar: 'أذونات منفصلة، معطلة افتراضيًا' },
   o1: { he: 'שימוש בתמונה לקידום ושיווק', en: 'Use of the image for marketing', ar: 'استخدام الصورة للتسويق' },
   o2: { he: 'שימוש בתמונה לאימון מודלים', en: 'Use of the image to train models', ar: 'استخدام الصورة لتدريب النماذج' },
@@ -40,7 +40,7 @@ const T = {
   agree: { he: 'אישור והמשך', en: 'Agree and continue', ar: 'موافقة ومتابعة' },
 
   captureTitle: { he: 'צילום', en: 'Photo', ar: 'التصوير' },
-  captureLead: { he: 'התצלום המקורי נשאר במכשיר. לשרת נשלחות רק התמונות שתבחרי לשמור.', en: 'The original photo stays on this device. Only the looks you save are uploaded.', ar: 'تبقى الصورة الأصلية على الجهاز. تُرفع فقط الصور التي تحفظينها.' },
+  captureLead: { he: 'לאורך, כל הגוף בפריים. התצלום נשמר בארכיון הלקוחות לפי ההסכמה.', en: 'Portrait, full body in frame. The photo is kept in the client archive per consent.', ar: 'طولي، الجسم كاملًا. تُحفظ الصورة في أرشيف العملاء وفق الموافقة.' },
   camera: { he: 'מצלמה', en: 'Camera', ar: 'الكاميرا' },
   shoot: { he: 'צילום', en: 'Capture', ar: 'التقاط' },
   upload: { he: 'מקובץ', en: 'From file', ar: 'من ملف' },
@@ -91,9 +91,9 @@ const T = {
   of: { he: 'מתוך', en: 'of', ar: 'من' },
   veilNoConsent: { he: 'אין צילום לפני הסכמה', en: 'No photo before consent', ar: 'لا تصوير قبل الموافقة' },
   veilWaiting: { he: 'ממתין לצילום', en: 'Waiting for a photo', ar: 'بانتظار الصورة' },
-  veilSub: { he: 'דמות הדגמה ניטרלית מוצגת עד אז', en: 'A neutral demo figure is shown until then', ar: 'تظهر شخصية تجريبية محايدة حتى ذلك الحين' },
-  engineFoot: { he: 'עלות לסשן: ₪0 · ללא שליחת תמונה', en: 'Cost per session: ₪0 · no image sent', ar: 'التكلفة للجلسة: ₪0 · بدون إرسال صورة' },
-  engineName: { he: 'שכבת איור מקומית', en: 'Local illustration layer', ar: 'طبقة رسم محلية' },
+  veilSub: { he: 'מצטלמים לאורך, מהראש עד הרגליים', en: 'Portrait, head to feet', ar: 'طولي، من الرأس إلى القدمين' },
+  engineFoot: { he: 'עלות לסשן: ₪0', en: 'Cost per session: ₪0', ar: 'التكلفة للجلسة: ₪0' },
+  engineName: { he: 'הלבשה: Leffa · רקע: במכשיר', en: 'Dressing: Leffa · Background: on device', ar: 'الإلباس: Leffa · الخلفية: على الجهاز' },
   followLead: { he: 'הבקשה עוברת לבעלת הסלון. רק היא מאשרת הזמנה ומוסרת הצעת מחיר.', en: 'The request goes to the salon owner. Only she approves orders and issues quotes.', ar: 'يذهب الطلب إلى صاحبة الصالون. هي وحدها توافق على الطلبات وتصدر عروض الأسعار.' },
   current: { he: 'הדגם הנוכחי', en: 'Current model', ar: 'التصميم الحالي' },
   kModel: { he: 'דגם', en: 'Model', ar: 'التصميم' },
@@ -107,7 +107,7 @@ const T = {
   favPick: { he: 'סמני שניים להשוואה', en: 'pick two to compare', ar: 'اختاري اثنين للمقارنة' },
   del: { he: 'מחיקה', en: 'Delete', ar: 'حذف' },
   modelLead2: { he: 'דגם שלא אושר לסלון לא נטען בכלל.', en: 'A model not approved for the salon is never loaded.', ar: 'التصميم غير المعتمد للصالون لا يتم تحميله أبدًا.' },
-  memOnly: { he: 'התצלום המקורי במכשיר בלבד', en: 'Original photo on this device only', ar: 'الصورة الأصلية على الجهاز فقط' },
+  memOnly: { he: 'נשמר לפי ההסכמה', en: 'Kept per consent', ar: 'محفوظ وفق الموافقة' },
   navLibrary: { he: 'מאגר', en: 'Library', ar: 'المكتبة' },
   r_30d: { he: '30 ימים', en: '30 days', ar: '30 يومًا' },
   gTitle: { he: 'הגלריה שלך', en: 'Your gallery', ar: 'معرضك' },

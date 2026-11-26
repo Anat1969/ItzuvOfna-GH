@@ -9,8 +9,10 @@ import Access from './pages/Access'
 import Roadmap from './pages/Roadmap'
 import Library from './pages/Library'
 import Gallery from './pages/Gallery'
+import Clients from './pages/Clients'
+import { newGalleryId } from './api'
 
-export type Page = 'cover' | 'studio' | 'library' | 'access' | 'roadmap' | 'gallery'
+export type Page = 'cover' | 'studio' | 'library' | 'clients' | 'access' | 'roadmap' | 'gallery'
 
 export interface Consent { c1: boolean; c2: boolean; c3: boolean; o1: boolean; o2: boolean; o3: boolean; ai: boolean; retention: Retention; at: number }
 export interface Fav { id: string; modelId: string; variation: string; size: number; transform: Transform; lookUrl?: string; engine?: 'local' | 'ai' }
@@ -24,12 +26,16 @@ export interface Session {
   favorites: Fav[]
   request: OrderReq | null
   tryons: Record<string, string> // דגם ← תמונת הכלה בשמלה, בזיכרון בלבד
+  client: string // שם הלקוחה, לא חובה
+  picked: string[] // דגמים שסומנו למדידה
+  backdrop: string // רקע נבחר: orig, סטודיו או רקע שהועלה
+  shots: Record<string, string> // `${דגם}|${רקע}` ← התמונה על הרקע
 }
 export interface AuditEntry { at: number; who: string; what: string; level: 'info' | 'privacy' | 'deny' | 'approve' }
 
 export const DEFAULT_T: Transform = { y: 22.5, scale: 74, width: 1.15 }
 
-const PAGES: Page[] = ['cover', 'studio', 'library', 'access', 'roadmap']
+const PAGES: Page[] = ['cover', 'studio', 'library', 'clients', 'access', 'roadmap']
 const galleryFromHash = () => /^#\/g\/([a-z0-9]{20,40})/.exec(location.hash)?.[1] ?? ''
 const fromHash = (): Page => { if (galleryFromHash()) return 'gallery'; const h = location.hash.replace('#/', '').split('?')[0] as Page; return PAGES.includes(h) ? h : 'cover' }
 // קישור אישי של בעלת הסלון: #/library?key=... שומר את המפתח במכשיר ומסיר אותו מהכתובת
@@ -70,7 +76,7 @@ export default function App() {
   const wipe = (reason: string) => {
     if (!session) return
     if (session.favorites.some(f => f.lookUrl)) api.deleteGallery(session.gallery).catch(() => null)
-    setSession(s => s && { ...s, photo: null, photoKind: null, favorites: [], tryons: {}, step: Math.min(s.step, 2) })
+    setSession(s => s && { ...s, photo: null, photoKind: null, favorites: [], tryons: {}, shots: {}, step: Math.min(s.step, 2) })
     log(`מחיקה: ${reason}. התצלום נמחק מהמכשיר, והגלריה נמחקה מהשרת`, 'privacy')
   }
   const endSession = () => { if (!session) return; log(`סיום סשן ${session.id}. כל הנתונים נמחקו`, 'privacy'); setSession(null) }
@@ -82,12 +88,12 @@ export default function App() {
     <div className="app">
       <header className={`top${page === 'gallery' ? ' guest' : ''}`}>
         <a className="brand" href="#/cover" onClick={() => go('cover')}>
-          <b>SHIRAN</b><span>Bridal Studio</span>
+          <b>קולקציה</b><span>סטודיו אופנה</span>
         </a>
         <nav className="nav">
-          {(['studio', 'library', 'access', 'roadmap'] as Page[]).map(p => (
+          {(['studio', 'library', 'clients', 'access', 'roadmap'] as Page[]).map(p => (
             <a key={p} href={`#/${p}`} className={page === p ? 'on' : ''} onClick={() => go(p)}>
-              {t(lang, p === 'studio' ? 'navStudio' : p === 'library' ? 'navLibrary' : p === 'access' ? 'navAccess' : 'navRoadmap')}
+              {p === 'clients' ? 'לקוחות' : t(lang, p === 'studio' ? 'navStudio' : p === 'library' ? 'navLibrary' : p === 'access' ? 'navAccess' : 'navRoadmap')}
             </a>
           ))}
         </nav>
@@ -115,6 +121,15 @@ export default function App() {
         {page === 'roadmap' && <Roadmap />}
         {page === 'library' && <Library user={user} onChange={refreshCatalog} log={w => log(w)} />}
         {page === 'gallery' && g && <Gallery lang={lang} g={g} />}
+        {page === 'clients' && <Clients user={user} onReuse={async (photo, name) => {
+          // לקוחה חוזרת: סשן חדש עם התצלום מהארכיון, ישר לבחירת דגמים
+          const b = await (await fetch(photo)).blob()
+          const data = await new Promise<string>(ok => { const r = new FileReader(); r.onload = () => ok(r.result as string); r.readAsDataURL(b) })
+          const id = `SES-${Date.now().toString(36).slice(-5).toUpperCase()}`
+          setSession({ id, gallery: newGalleryId(), openedAt: Date.now(), salon: user.salon, user: user.id, step: 1, consent: null, photo: data, photoKind: 'file', modelId: null, variation: null, size: null, transform: DEFAULT_T, favorites: [], request: null, tryons: {}, client: name, picked: [], backdrop: 'paper', shots: {} })
+          log(`מדידה חדשה ללקוחה מהארכיון: ${name || 'ללא שם'}. נדרשת הסכמה מחדש`, 'privacy')
+          go('studio')
+        }} />}
       </main>
     </div>
   )

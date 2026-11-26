@@ -70,27 +70,22 @@ interface StageProps {
   small?: boolean
 }
 
-export function Stage({ photo, model, fill, transform, watermark, uid, small }: StageProps) {
+export function Stage({ photo, model, fill, transform, uid, small }: StageProps) {
+  const empty = <div className="stage-empty">תצלום הלקוחה יופיע כאן<br />לאורך, כל הגוף בפריים</div>
   if (model?.image && model.cutout === false) return (
     <div className={`stage pair${small ? ' small' : ''}`}>
-      <div className="half">{photo ? <img src={photo} alt="" className="photo" /> : <DemoFigure />}</div>
+      <div className="half">{photo ? <img src={photo} alt="" className="photo" /> : empty}</div>
       <div className="half"><img src={model.image} alt={model.name} className="photo" /></div>
-      <div className="wm" aria-hidden="true">{Array.from({ length: small ? 3 : 6 }).map((_, i) => <span key={i}>{watermark}</span>)}</div>
-      <div className="badge">{watermark}</div>
     </div>
   )
   return (
     <div className={`stage${small ? ' small' : ''}`}>
-      {photo ? <img src={photo} alt="" className="photo" /> : <DemoFigure />}
-      {model && (
+      {photo ? <img src={photo} alt="" className="photo" /> : empty}
+      {model && photo && (
         <div className="dress-wrap" style={{ top: `${transform.y}%`, height: `${transform.scale}%`, aspectRatio: String(dressAspect(model)), transform: `translateX(-50%) scaleX(${transform.width})` }}>
           <Dress model={model} fill={fill} uid={uid} />
         </div>
       )}
-      <div className="wm" aria-hidden="true">
-        {Array.from({ length: small ? 3 : 6 }).map((_, i) => <span key={i}>{watermark}</span>)}
-      </div>
-      <div className="badge">{watermark}</div>
     </div>
   )
 }

@@ -1,36 +1,31 @@
-import { MODELS, VAR } from '../data'
-import { Dress } from '../Stage'
+import { allModels } from '../data'
 import type { Page } from '../App'
 
-const FLOW = ['סשן', 'הסכמה', 'צילום', 'דגם מורשה', 'הדמיה מסומנת', 'אישור בעלת הסלון']
+const FLOW = ['הלקוחה מצטלמת', 'מודדת את הקולקציה', 'רקע סטודיו או נוף', 'גלריה אישית', 'הזמנה']
 
 export default function Cover({ go }: { go: (p: Page) => void }) {
+  const hero = allModels().slice(0, 3)
   return (
     <div className="cover">
-      <div className="cover-art" aria-hidden="true">
-        <div className="draw"><Dress model={MODELS[2]} fill={VAR.white.fill} uid="cover" /></div>
+      <div className={`cover-art n${hero.length}`} aria-hidden="true">
+        {hero.length ? hero.map(m => <img key={m.id} src={m.image} alt="" />) : <span className="cover-empty">הקולקציה תופיע כאן אחרי ההעלאה הראשונה</span>}
       </div>
       <div className="cover-text">
-        <span className="kicker">שלב ג׳ · אב טיפוס חזון · ללא עלות</span>
-        <h1>הכלה רואה את השמלה עליה, <mark>רק אחרי שהסכימה</mark>.</h1>
+        <span className="kicker">קולקציה · סטודיו אופנה אוטומטי</span>
+        <h1>הלקוחה מצטלמת פעם אחת. <mark>כל הקולקציה עליה.</mark></h1>
         <p className="lead-xl">
-          יועצת בסלון מצלמת בהסכמה, בוחרת דגם מהקטלוג המאושר לסלון, ומציגה המחשה מסומנת.
-          <br />ההזמנה עוברת לאישור בעלת הסלון.
+          מעלים את הקולקציה כמו שהיא, מצולמת על דוגמנית.
+          <br />הלקוחה מצטלמת או שולחת תמונה, מודדת את כל הדגמים, בוחרת רקע, ומקבלת גלריה אישית.
         </p>
         <ol className="flow">
           {FLOW.map((f, i) => <li key={f}><span className="mono">{i + 1}</span>{f}</li>)}
         </ol>
-        <blockquote>
-          ״זהו כלי הדמיה ושיווק, לא תחליף למדידה פיזית, גזרה או התחייבות להתאמה מדויקת.״
-          <cite>מתוך מסמך החזון, 26.11.2026</cite>
-        </blockquote>
-        <p className="haiku">בד לבן נופל<br />על תמונה שלא נשמרה.<br />ההסכמה קודם.</p>
         <div className="row">
           <button className="primary big" onClick={() => go('studio')}>פתיחה: לסטודיו</button>
-          <button className="big" onClick={() => go('roadmap')}>מפת הדרכים ותנאי הפיילוט</button>
-          <button className="big ghost" onClick={() => go('access')}>הרשאות ויומן</button>
+          <button className="big" onClick={() => go('library')}>הקולקציה</button>
+          <button className="big ghost" onClick={() => go('clients')}>לקוחות</button>
         </div>
-        <p className="fine">נתוני הדגמה בלבד. אין שרת, אין AI בתשלום, ואין שליחת תמונות. האפליקציה נפרדת משלב א׳ ולא נוגעת בו.</p>
+        <p className="fine">ההדמיה ממחישה ואינה מחליפה מדידה. בלי עלות: ההלבשה בשירות מחקר פתוח, והחלפת הרקע במכשיר עצמו.</p>
       </div>
     </div>
   )
