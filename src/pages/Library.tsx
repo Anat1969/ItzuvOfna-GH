@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { SALONS, can, type User } from '../data'
 import { api, getKey, setKey, type RemoteModel } from '../api'
-import { cutout, fileToDataUrl } from '../imaging'
+import { cutout, bgUniform, fileToDataUrl } from '../imaging'
 
 interface Draft {
-  key: string; file: string; name: string; remove: boolean; tolerance: number
+  key: string; file: string; name: string; remove: boolean; tolerance: number; uniform: boolean
   out?: { dataUrl: string; aspect: number; cutout: boolean }; busy: boolean; state: 'new' | 'saving' | 'saved' | 'error'; err?: string
 }
 
@@ -32,7 +32,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
 
   const addFiles = async (files: FileList | File[]) => {
     const list = Array.from(files).filter(f => f.type.startsWith('image/'))
-    const fresh: Draft[] = await Promise.all(list.map(async f => ({ key: Math.random().toString(36).slice(2), file: await fileToDataUrl(f), name: nameFrom(f.name), remove: true, tolerance: 38, busy: true, state: 'new' as const })))
+    const fresh: Draft[] = await Promise.all(list.map(async f => { const file = await fileToDataUrl(f); const uniform = await bgUniform(file).catch(() => false); return { key: Math.random().toString(36).slice(2), file, name: nameFrom(f.name), remove: uniform, uniform, tolerance: 38, busy: true, state: 'new' as const } }))
     setDrafts(d => [...d, ...fresh])
     for (const dr of fresh) process(dr)
   }
@@ -75,7 +75,7 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
       <header className="ph">
         <span className="kicker">מאגר הדגמים · נשמר בענן של האפליקציה</span>
         <h1>זורקים תמונה, בוחרים קולקציה, <mark>והדגם מופיע בסטודיו</mark>.</h1>
-        <p className="lead">הרקע נחתך אוטומטית כשהצילום על רקע אחיד. אפשר לכוונן לפני שמירה.</p>
+        <p className="lead">שמלה על רקע אחיד: הרקע נחתך, והשמלה מונחת על תצלום הכלה.<br />שמלה על דוגמנית: נשמרת כמו שהיא, ומוצגת לצד הכלה. הדמיה מלאה של הכלה בשמלה דורשת מנוע AI.</p>
       </header>
 
       {keyOk !== true && (
@@ -121,7 +121,8 @@ export default function Library({ user, onChange, log }: { user: User; onChange:
               <li key={d.key} className={d.state}>
                 <div className="checker">{d.out ? <img src={d.out.dataUrl} alt="" /> : <span className="muted">מעבד...</span>}</div>
                 <input value={d.name} onChange={e => setDrafts(x => x.map(y => y.key === d.key ? { ...y, name: e.target.value } : y))} aria-label="שם הדגם" />
-                <label className="check mini"><input type="checkbox" checked={d.remove} onChange={e => tweak(d.key, { remove: e.target.checked })} /><span>חיתוך רקע</span></label>
+                {!d.uniform && !d.remove && <p className="lib-note">צולם על דוגמנית או ברקע לא אחיד, ולכן נשמר כמו שהוא. בסטודיו יוצג לצד הכלה.</p>}
+                <label className="check mini"><input type="checkbox" checked={d.remove} onChange={e => tweak(d.key, { remove: e.target.checked })} /><span>חיתוך רקע{d.uniform ? '' : ' (לא מומלץ)'}</span></label>
                 {d.remove && <label className="tol"><span>רגישות</span><input type="range" min={10} max={90} value={d.tolerance} onChange={e => tweak(d.key, { tolerance: +e.target.value })} /></label>}
                 <div className="row">
                   {d.state === 'saved' ? <span className="ok">נשמר</span> : <button onClick={async () => { if (await saveOne(d)) { await reload(); onChange() } }} disabled={keyOk !== true || d.busy || d.state === 'saving'}>{d.state === 'saving' ? 'שומר...' : 'שמירה'}</button>}

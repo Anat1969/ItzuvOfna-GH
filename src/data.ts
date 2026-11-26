@@ -13,6 +13,7 @@ export interface Model {
   image?: string // דגם שהועלה: תמונה, בדרך כלל PNG עם רקע שקוף
   aspect?: number // רוחב חלקי גובה של התמונה
   uploaded?: boolean
+  cutout?: boolean // false: צולם על דוגמנית או ברקע לא אחיד, מוצג זה לצד זה
   collection: string
   sizes: number[]
   variations: Variation[]
@@ -88,7 +89,7 @@ export const VAR_PHOTO: Variation = { id: 'photo', label: { he: 'כמו בתמו
 export function setRemote(list: any[]) {
   REMOTE = list.map(m => ({
     id: m.id, name: m.name, collection: m.collection, sizes: m.sizes, variations: [VAR_PHOTO], sleeves: false,
-    retailPrice: m.retailPrice || 0, image: m.image, aspect: m.aspect, uploaded: true,
+    retailPrice: m.retailPrice || 0, image: m.image, aspect: m.aspect, uploaded: true, cutout: m.cutout !== false,
     rights: { source: m.rights, usage: 'שימוש בסלון', documented: new Date(m.createdAt).toLocaleDateString('he-IL') },
     salons: m.salons?.length ? m.salons : SALONS.map(x => x.id),
   }))

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { t, type Lang, type Key } from '../i18n'
 import { can, modelsFor, salonOf, findModel, allModels, collectionsOf, RET_DAYS, ROLE_HE, type Model, type Retention, type User } from '../data'
 import { api, newGalleryId, galleryUrl, setKey } from '../api'
-import { composeLook, dressDataUrl, shrink, stampImage } from '../imaging'
+import { composeLook, composePair, dressDataUrl, shrink, stampImage } from '../imaging'
 import { activeEngine } from '../engine'
 import { Stage, Dress } from '../Stage'
 import { DEFAULT_T, fmtTime, type AuditEntry, type Consent, type Fav, type Page, type Session } from '../App'
@@ -103,7 +103,7 @@ export default function Studio(p: Props) {
           <div className="stack">
             <h2>{model.name} <span className="mono muted">{model.id}</span></h2>
             <p className="lead">{L('size')} <b>{s.size}</b> · {model.variations.find(v => v.id === s.variation)?.label[lang]}</p>
-            <fieldset className="sliders">
+            {model.cutout === false ? <p className="note">הדגם צולם על דוגמנית, ולכן מוצג לצד הכלה. הדמיה של הכלה בשמלה: כפתור AI.</p> : <fieldset className="sliders">
               <legend>{L('adjust')}</legend>
               {([['y', L('height'), 5, 45, .5], ['scale', L('scale'), 40, 95, .5], ['width', L('width'), .7, 1.6, .01]] as const).map(([k, lbl, mn, mx, st]) => (
                 <label key={k}><span>{lbl}</span>
@@ -111,7 +111,7 @@ export default function Studio(p: Props) {
                 </label>
               ))}
               <button className="ghost" onClick={() => upd({ transform: DEFAULT_T })}>{L('reset')}</button>
-            </fieldset>
+            </fieldset>}
             <div className="row">
               <SaveLook lang={lang} user={user} s={s} model={model} onSaved={f => { upd({ favorites: [...s.favorites, f] }); log(`נשמרה תמונה לגלריה: ${f.modelId} מידה ${f.size}${f.engine === 'ai' ? ' (AI)' : ''}`, 'privacy') }} />
               <button onClick={() => { setClient(true); log('מעבר לתצוגת לקוחה') }}>{L('clientView')}</button>
@@ -365,7 +365,7 @@ function SaveLook({ lang, user, s, model, onSaved }: { lang: Lang; user: User; s
   }
   const local = async () => {
     setBusy('local'); setErr('')
-    try { await store(await composeLook({ photo: s.photo, model, fill: fillOf(s.modelId, s.variation), t: s.transform, watermark: L('illustration'), caption }), 'local') }
+    try { await store(model.cutout === false ? await composePair({ photo: s.photo, model, watermark: L('illustration'), caption }) : await composeLook({ photo: s.photo, model, fill: fillOf(s.modelId, s.variation), t: s.transform, watermark: L('illustration'), caption }), 'local') }
     catch (e: any) { setErr(e.message) } finally { setBusy('') }
   }
   const gen = async () => {

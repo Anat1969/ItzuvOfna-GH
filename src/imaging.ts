@@ -9,6 +9,26 @@ const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICom
 export const fileToDataUrl = (f: File) => new Promise<string>(ok => { const r = new FileReader(); r.onload = () => ok(r.result as string); r.readAsDataURL(f) })
 
 /**
+ * האם הרקע אחיד? דוגמים את רצועת השוליים: רקע של צילום מוצר כמעט לא משתנה,
+ * ואילו דוגמנית בחדר נותנת שוליים מגוונים. רק ברקע אחיד מציעים חיתוך.
+ */
+export async function bgUniform(src: string) {
+  const img = await loadImg(src)
+  const k = Math.min(1, 240 / Math.max(img.width, img.height))
+  const W = Math.max(8, Math.round(img.width * k)), H = Math.max(8, Math.round(img.height * k))
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H
+  const cx = cv.getContext('2d', { willReadFrequently: true })!; cx.drawImage(img, 0, 0, W, H)
+  const d = cx.getImageData(0, 0, W, H).data
+  const px: number[][] = []
+  const at = (x: number, y: number) => { const i = (y * W + x) * 4; px.push([d[i], d[i + 1], d[i + 2]]) }
+  for (let x = 0; x < W; x++) { at(x, 0); at(x, 1); at(x, H - 1); at(x, H - 2) }
+  for (let y = 0; y < H; y++) { at(0, y); at(1, y); at(W - 1, y); at(W - 2, y) }
+  const m = [0, 1, 2].map(c => px.reduce((s, p) => s + p[c], 0) / px.length)
+  const near = px.filter(p => Math.hypot(p[0] - m[0], p[1] - m[1], p[2] - m[2]) < 26).length / px.length
+  return near > 0.9
+}
+
+/**
  * חיתוך רקע לתמונת דגם: מילוי מהשוליים פנימה בכל פיקסל שדומה לצבע הרקע,
  * ריכוך קצוות, וחיתוך לתיבת השמלה. עובד היטב על צילום מוצר ברקע אחיד.
  */
@@ -70,9 +90,30 @@ export async function shrink(src: string, maxSide = 1400, q = 0.88) {
 export async function dressDataUrl(model: Model, fill: string) {
   if (!model.image) return shrinkSvg(dressSvg(model, fill, 'x'))
   const img = await loadImg(model.image)
-  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height
-  cv.getContext('2d')!.drawImage(img, 0, 0)
-  return cv.toDataURL('image/png')
+  const k = Math.min(1, 1100 / Math.max(img.width, img.height))
+  const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k)
+  const cx = cv.getContext('2d')!
+  if (model.cutout === false) { cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height) }
+  cx.drawImage(img, 0, 0, cv.width, cv.height)
+  return model.cutout === false ? cv.toDataURL('image/jpeg', 0.88) : cv.toDataURL('image/png')
+}
+
+const fitInto = (cx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+  const k = Math.min(w / img.width, h / img.height)
+  cx.drawImage(img, x + (w - img.width * k) / 2, y + (h - img.height * k) / 2, img.width * k, img.height * k)
+}
+
+/** דגם שצולם על דוגמנית: אי אפשר להלביש אותו בהרכבה, ולכן מציגים זה לצד זה */
+export async function composePair(o: { photo: string | null; model: Model; watermark: string; caption: string }) {
+  const W = 2000, H = 1400, G = 24
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H
+  const cx = cv.getContext('2d')!
+  cx.fillStyle = '#fff'; cx.fillRect(0, 0, W, H)
+  cx.fillStyle = '#f7f6f4'; cx.fillRect(0, 0, W / 2 - G / 2, H - 60); cx.fillRect(W / 2 + G / 2, 0, W / 2 - G / 2, H - 60)
+  fitInto(cx, await loadImg(o.photo ?? svgUrl(FIGURE_SVG)), W / 2 + G / 2, 0, W / 2 - G / 2, H - 60)
+  fitInto(cx, await loadImg(o.model.image!), 0, 0, W / 2 - G / 2, H - 60)
+  stamp(cx, W, H, o.watermark, o.caption)
+  return cv.toDataURL('image/jpeg', 0.9)
 }
 async function shrinkSvg(svg: string) {
   const img = await loadImg(svgUrl(svg))

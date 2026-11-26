@@ -71,6 +71,14 @@ interface StageProps {
 }
 
 export function Stage({ photo, model, fill, transform, watermark, uid, small }: StageProps) {
+  if (model?.image && model.cutout === false) return (
+    <div className={`stage pair${small ? ' small' : ''}`}>
+      <div className="half">{photo ? <img src={photo} alt="" className="photo" /> : <DemoFigure />}</div>
+      <div className="half"><img src={model.image} alt={model.name} className="photo" /></div>
+      <div className="wm" aria-hidden="true">{Array.from({ length: small ? 3 : 6 }).map((_, i) => <span key={i}>{watermark}</span>)}</div>
+      <div className="badge">{watermark}</div>
+    </div>
+  )
   return (
     <div className={`stage${small ? ' small' : ''}`}>
       {photo ? <img src={photo} alt="" className="photo" /> : <DemoFigure />}

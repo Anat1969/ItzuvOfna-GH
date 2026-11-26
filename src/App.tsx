@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DIR, LANG_LABEL, t, type Lang } from './i18n'
 import { USERS, ROLE_HE, salonOf, setRemote, type Retention, type User } from './data'
-import { api } from './api'
+import { api, setKey } from './api'
 import type { Transform } from './engine'
 import Cover from './pages/Cover'
 import Studio from './pages/Studio'
@@ -30,7 +30,9 @@ export const DEFAULT_T: Transform = { y: 22.5, scale: 74, width: 1.15 }
 
 const PAGES: Page[] = ['cover', 'studio', 'library', 'access', 'roadmap']
 const galleryFromHash = () => /^#\/g\/([a-z0-9]{20,40})/.exec(location.hash)?.[1] ?? ''
-const fromHash = (): Page => { if (galleryFromHash()) return 'gallery'; const h = location.hash.replace('#/', '') as Page; return PAGES.includes(h) ? h : 'cover' }
+const fromHash = (): Page => { if (galleryFromHash()) return 'gallery'; const h = location.hash.replace('#/', '').split('?')[0] as Page; return PAGES.includes(h) ? h : 'cover' }
+// קישור אישי של בעלת הסלון: #/library?key=... שומר את המפתח במכשיר ומסיר אותו מהכתובת
+;(() => { const m = /[?&]key=([^&]+)/.exec(location.hash); if (m) { setKey(decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname + location.hash.replace(/[?&]key=[^&]+/, '')) } })()
 
 export const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 const RET_MS: Record<Retention, number> = { session: 0, '24h': 864e5, '7d': 6048e5, '30d': 2592e6 }
@@ -43,7 +45,7 @@ export default function App() {
   const [audit, setAudit] = useState<AuditEntry[]>([])
   const [, setCatVer] = useState(0)
   const refreshCatalog = () => api.models().then(m => { setRemote(m); setCatVer(v => v + 1) }).catch(() => null)
-  useEffect(() => { refreshCatalog() }, [])
+  useEffect(() => { refreshCatalog(); api.health().then(h => { if (h.keyOk) setUser(USERS[0]) }).catch(() => null) }, [])
 
   useEffect(() => { const f = () => setPage(fromHash()); addEventListener('hashchange', f); return () => removeEventListener('hashchange', f) }, [])
   useEffect(() => {
