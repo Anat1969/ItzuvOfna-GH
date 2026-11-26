@@ -1,4 +1,4 @@
-import { authed, send, type Req, type Res } from './_lib'
+import { authed, send, type Req, type Res } from './_lib.js'
 
 // מנוע AI אופציונלי. פעיל רק אם הוגדר GEMINI_API_KEY בפרויקט ב-Vercel.
 // מקבל את תצלום הכלה ואת תמונת הדגם, ומחזיר תמונה אחת שלה בשמלה.

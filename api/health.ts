@@ -1,4 +1,4 @@
-import { authed, send, type Req, type Res } from './_lib'
+import { authed, send, type Req, type Res } from './_lib.js'
 
 // מצב השירותים, ובדיקת מפתח הסטודיו בלי לחשוף אותו
 export default function handler(req: Req, res: Res) {

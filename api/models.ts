@@ -1,5 +1,5 @@
 import { put, list, del } from '@vercel/blob'
-import { authed, send, dataUrlToBuffer, safeId, q, type Req, type Res } from './_lib'
+import { authed, send, dataUrlToBuffer, safeId, q, type Req, type Res } from './_lib.js'
 
 // דגמים שהועלו: תמונה (בדרך כלל PNG שקוף) וקובץ נתונים לכל דגם
 const META = 'models/meta/'

@@ -1,5 +1,5 @@
 import { put, list, del } from '@vercel/blob'
-import { authed, send, dataUrlToBuffer, safeId, q, GALLERY, type Req, type Res } from './_lib'
+import { authed, send, dataUrlToBuffer, safeId, q, GALLERY, type Req, type Res } from './_lib.js'
 
 // הגלריה האישית של כלה: תמונות מוכנות (כלה ודגם), בלי התצלום המקורי.
 // שם הקובץ נושא את מועד המחיקה, ותמונה שפג תוקפה נמחקת בקריאה הבאה.
