@@ -14,13 +14,22 @@ export default async function handler(req: Req, res: Res) {
   const auth: Record<string, string> = process.env.HF_TOKEN ? { Authorization: `Bearer ${process.env.HF_TOKEN}` } : {}
   const t0 = Date.now()
   try {
-    const data = [img(person), img(garment), false, Math.min(50, Math.max(10, Number(steps) || 30)), 2.5, 42, 'dress_code', 'dresses', false]
+    // מעלים את תצלום הכלה לשרת המנוע, כמו הממשק הרשמי שלו, ומקבלים נתיב
+    const m0 = /^data:(image\/[a-z]+);base64,(.+)$/.exec(person)!
+    const fd = new FormData()
+    fd.append('files', new Blob([Buffer.from(m0[2], 'base64')], { type: m0[1] }), 'bride.jpg')
+    const up = await fetch(`${SPACE}/gradio_api/upload`, { method: 'POST', body: fd, headers: auth })
+    const paths: any = await up.json().catch(() => null)
+    if (!Array.isArray(paths) || !paths[0]) { console.error('tryon upload failed', up.status, JSON.stringify(paths)?.slice(0, 300)); return send(res, 502, { error: 'העלאת התצלום לשירות ההלבשה נכשלה. נסי שוב.' }) }
+    const personRef = { path: paths[0], orig_name: 'bride.jpg', meta: { _type: 'gradio.FileData' } }
+    const data = [personRef, img(garment), false, Math.min(50, Math.max(10, Number(steps) || 30)), 2.5, 42, 'dress_code', 'dresses', false]
     const r1 = await fetch(`${SPACE}/gradio_api/call/leffa_predict_vt`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth }, body: JSON.stringify({ data }) })
     const j1: any = await r1.json().catch(() => ({}))
     if (!j1.event_id) return send(res, 502, { error: 'שירות ההלבשה לא זמין כרגע. נסי שוב בעוד דקה.' })
     const r2 = await fetch(`${SPACE}/gradio_api/call/leffa_predict_vt/${j1.event_id}`, { headers: auth, signal: AbortSignal.timeout(52000) })
     const txt = await r2.text()
     if (/event: error/.test(txt)) {
+      console.error('tryon error event', txt.slice(0, 600))
       const quota = /quota|GPU/i.test(txt)
       return send(res, quota ? 429 : 502, { error: quota ? 'המכסה החינמית היומית של שירות ההלבשה נגמרה. היא מתחדשת מחר.' : 'ההלבשה נכשלה בתמונה הזו. נסי תצלום אחר: עמידה מלאה, לאורך, רקע פשוט.' })
     }
