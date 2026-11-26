@@ -35,6 +35,16 @@ export default async function handler(req: Req, res: Res) {
       return send(res, 200, { ms: Date.now() - t0, stream: txt.slice(0, 3000) })
     } catch (e: any) { return send(res, 200, { ms: Date.now() - t0, error: String(e?.message || e) }) }
   }
+  if (mode === 'pose') {
+    // העברה לתנוחה: src = תמונת התנוחה, ref = הלקוחה המולבשת
+    const t0 = Date.now()
+    const data = [img(q(req, 'pose')), img(q(req, 'person')), false, 30, 2.5, 42]
+    const r1 = await fetch(`${LEFFA}/gradio_api/call/leffa_predict_pt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data }) })
+    const j1: any = await r1.json().catch(() => ({}))
+    if (!j1.event_id) return send(res, 200, { step: 'submit', status: r1.status, j1 })
+    const r2 = await fetch(`${LEFFA}/gradio_api/call/leffa_predict_pt/${j1.event_id}`, { signal: AbortSignal.timeout(50000) })
+    return send(res, 200, { ms: Date.now() - t0, stream: (await r2.text()).slice(0, 900) })
+  }
   if (mode === 'run2') {
     // אותו מסלול כמו הסטודיו: העלאת התצלום לשרת המנוע, ואז הלבשה
     const t0 = Date.now()
